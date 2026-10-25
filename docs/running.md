@@ -161,4 +161,4 @@ Python-пакет allure-pytest не устанавливает Allure CLI; CLI 
 - `tests/` — UI, `tests/api/` — API; `tests/conftest.py` — независимые фикстуры.
 - `mobile/config.py`, `mobile/conftest.py`, `mobile/pages/` — отдельная мобильная конфигурация, сессия и Page Object.
 - `reporting.py`, `mobile/reporting.py`, `selenoid.py` — безопасные вложения и завершение сессий.
-- `docs/` — инструкции, ручные кейсы, результаты проверок и иллюстрации. Генерируемые результаты сохраняются локально в `.artifacts/`.
+- `docs/` — инструкции, результаты проверок и иллюстрации. Ручные кейсы хранятся в [Allure TestOps](https://allure.qa.guru/project/5398/test-cases). Генерируемые результаты сохраняются локально в `.artifacts/`.

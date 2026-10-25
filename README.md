@@ -53,7 +53,17 @@
 - **MOBILE-02** — замена запроса показывает `Selenium (software)` и убирает прежний результат.
 - **MOBILE-03** — очистка удаляет введённый текст и прежние результаты.
 
-Дополнительно подготовлены **[5 ручных кейсов](docs/manual_test_cases.md)**. Их ещё предстоит перенести и выполнить в TestOps.
+### Ручные кейсы · Allure TestOps
+
+Пять ручных кейсов перенесены в [проект TestOps](https://allure.qa.guru/project/5398/test-cases): условия, данные, приоритеты, 23 шага с отдельными ожидаемыми результатами и очистка. Кейсы имеют статус **«Черновик»**; полный ручной прогон ещё не выполнен.
+
+| Кейс | Проверка |
+|---|---|
+| [MAN-01 · #54176](https://allure.qa.guru/project/5398/test-cases/54176) | Переключение категории Women / Tops → Men / Jeans |
+| [MAN-02 · #54177](https://allure.qa.guru/project/5398/test-cases/54177) | Переключение бренда Polo → H&M |
+| [MAN-03 · #54178](https://allure.qa.guru/project/5398/test-cases/54178) | Добавление товара из рекомендаций |
+| [MAN-04 · #54179](https://allure.qa.guru/project/5398/test-cases/54179) | Сохранение гостевой корзины после входа |
+| [MAN-05 · #54180](https://allure.qa.guru/project/5398/test-cases/54180) | Выход из аккаунта и обновление страницы |
 
 ## Как связаны API и UI
 
@@ -123,16 +133,40 @@ Allure: группы UI/API/Mobile, названия, шаги и безопас
 
 **[Видео реальной Mobile-сессии →](https://app-automate.browserstack.com/builds/08f506e141fa67697527228d24e16182ed0f5b34/sessions/0a0ce7880f0af9ea4a62b2705b7fd4a47c320612)** Поиск Python, сессия закрыта; MP4 получен и приложен к копии Allure-результата. Для просмотра может требоваться доступ к BrowserStack; ссылка не гарантирует бессрочное хранение видео.
 
-Скриншоты Allure Report — обзор и тест со вложениями — и UI-видео будут добавлены после проверки учебной инфраструктуры.
+### Allure TestOps · запуск Jenkins №6
+
+В [запуске №56722](https://allure.qa.guru/launch/56722), связанном со [сборкой Jenkins №6](https://jenkins.qa.guru/job/anastasia-diplom-python-ci/6/), подтверждены **14 успешных тестов: 8 UI + 6 API**. Скриншоты интерфейса TestOps сделаны 25.10.2026. Для открытия ссылок может потребоваться авторизация.
+
+[![Allure TestOps: 14 успешных тестов, 100%](docs/images/testops_launch_overview.png)](https://allure.qa.guru/launch/56722)
+
+<details>
+<summary><b>Шаги UI-теста, вложения и ручные кейсы</b></summary>
+
+**UI-06 — проверка двух разных товаров в корзине:**
+
+[![UI-06: успешные шаги проверки корзины](docs/images/testops_ui_steps.png)](https://allure.qa.guru/launch/56722/tree/1153434)
+
+**Вложения UI-06:** логи, HTML страницы, сведения о Selenoid, PNG и MP4 «Видео Selenoid» (396,76 КБ). [Открыть вложения и видео →](https://allure.qa.guru/launch/56722/tree/1153434/attachments)
+
+[![UI-06: диагностические вложения и видео Selenoid](docs/images/testops_ui_attachments.png)](https://allure.qa.guru/launch/56722/tree/1153434/attachments)
+
+**Пять перенесённых ручных кейсов:**
+
+[![MAN-01–MAN-05 в Allure TestOps](docs/images/testops_manual_cases.png)](https://allure.qa.guru/project/5398/test-cases)
+
+[Происхождение скриншотов](docs/images/README.md)
+
+</details>
 
 <a id="status"></a>
 
 ## Текущий статус
 
-- **Реальные результаты:** Mobile — 3 passed отдельно. Последний полный UI/API-прогон — 13 passed, 1 failed и 1 teardown error. **Общего подтверждённого запуска «17 passed» не было.** [Результаты и ограничения](docs/validation.md).
-- **Automation Exercise:** последняя выборочная проверка 6 API + UI-01 — 4 failed / 7 errors (включая setup/teardown): HTML вместо JSON и ReadTimeout. Создание/очистка четырёх новых аккаунтов не подтверждены; сохраняется и прежняя неопределённая очистка одного аккаунта. [Диагностика и результаты](docs/validation.md).
+- **Реальные результаты на 25.10.2026:** UI/API — **14 passed** в [TestOps, запуск №56722](https://allure.qa.guru/launch/56722); Mobile — **3 passed** отдельным запуском. **Общего подтверждённого запуска «17 passed» не было.** [Результаты и ограничения](docs/validation.md).
+- **Automation Exercise:** новый успешный CI-прогон подтверждён. История прежних сетевых отказов и неопределённой очистки аккаунтов сохранена в [диагностике](docs/validation.md); новый прогон не подтверждает удаление аккаунтов прежних запусков.
 - **Wikipedia sample:** открытие статьи возвращало `An error occurred`, причина неизвестна. Замена сценария — изменение покрытия, не исправление приложения.
-- **Selenoid / UI-видео:** по предоставленному результату из Jenkins один удалённый UI-тест прошёл: **1 passed за 9,96 с**, Chrome 156.0.8078.47. Исправлена ошибка сбора браузерных логов; исправление и получение MP4 требуют проверки в Jenkins. [Подробности](docs/validation.md).
-- **Jenkins / Allure Report / TestOps:** создана учебная Jenkins job и настроена связь с TestOps. Один удалённый UI-запуск прошёл; передача результатов в TestOps и публикация Allure Report ещё не подтверждены. Проверенные ссылки добавим после запуска; ручные кейсы нужно перенести и выполнить.
+- **Selenoid / UI-видео:** в UI-06 запуска №6 подтверждены вложения браузерных логов, PNG, HTML, сведений о сессии и MP4. [Посмотреть вложения](https://allure.qa.guru/launch/56722/tree/1153434/attachments).
+- **Jenkins / TestOps:** передача 14 результатов сборки №6 подтверждена в интерфейсе TestOps. Отдельная публикация Allure Report не проверялась.
+- **Ручные кейсы:** MAN-01–MAN-05 перенесены в TestOps и проверены после повторного открытия. Выполнение остаётся отдельным этапом; Passed им не присвоен.
 
 [Инструкции](docs/running.md) · [Проверенные результаты и оставшиеся действия](docs/validation.md)
