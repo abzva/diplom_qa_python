@@ -1,0 +1,25 @@
+.venv/
+.cache/
+.tmp/
+.artifacts/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.idea/
+.DS_Store
+.env
+.env.*
+!.env.example
+allure-results/
+allure-report/
+
+# Downloaded application binaries and raw research snapshots stay local.
+*.apk
+*.aab
+*.ipa
+/research_notes/
+
+# Local review history and publishing drafts.
+/reports/
+/docs/final_review.md
+/docs/github_profile_draft.md
