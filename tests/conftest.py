@@ -16,6 +16,7 @@ import pytest
 import allure
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.remote.command import Command
 
 from diplom_qa_python.api.accounts import read_account_response, verify_login
 from diplom_qa_python.api.session import ApiSession
@@ -159,7 +160,8 @@ def browser(request):
                         ).length
                     };
                 """)
-                console = driver.get_log("browser")
+                # Remote lacks ChromiumDriver.get_log(); both support this command.
+                console = driver.execute(Command.GET_LOG, {"type": "browser"})["value"]
                 observations["console_levels"] = dict(Counter(
                     entry["level"] for entry in console
                 ))
