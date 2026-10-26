@@ -4,8 +4,9 @@ import argparse
 import json
 import shutil
 from uuid import uuid4
+from urllib.parse import urlsplit
 
-from mobile.reporting import attach_completed_session
+from mobile.reporting import SESSION_ID_LABEL, attach_completed_session
 from mobile.config import ROOT, MobileSettings
 from reporting import register_cloud_credentials
 
@@ -15,6 +16,30 @@ def project_path(value):
     if not path.is_relative_to(ROOT):
         raise ValueError("Use a path inside the project")
     return path
+
+
+def find_session_result(source, session_id):
+    matches = []
+    for file in source.glob("*-result.json"):
+        result = json.loads(file.read_text(encoding="utf-8"))
+        ids = {label["value"] for label in result.get("labels", [])
+               if label.get("name") == SESSION_ID_LABEL}
+        # Compatibility with results created before the session ID label existed.
+        linked_ids = set()
+        for link in result.get("links", []):
+            url = urlsplit(link.get("url", ""))
+            parts = url.path.rstrip("/").split("/")
+            if (url.hostname == "app-automate.browserstack.com"
+                    and len(parts) >= 3 and parts[-2] == "sessions"):
+                linked_ids.add(parts[-1])
+        recorded_ids = ids | linked_ids
+        if session_id in recorded_ids:
+            if recorded_ids != {session_id}:
+                raise ValueError("Conflicting BrowserStack session IDs in an original result")
+            matches.append(file)
+    if len(matches) != 1:
+        raise ValueError("Expected exactly one original result linked to this session")
+    return matches[0]
 
 
 def main():
@@ -31,15 +56,10 @@ def main():
     if not args.session_id.isalnum():
         parser.error("Expected an alphanumeric BrowserStack session ID")
 
-    # Locate the actual result by its recorded session link, never by test name.
-    matches = []
-    for file in source.glob("*-result.json"):
-        result = json.loads(file.read_text())
-        if any(link["url"].rstrip("/").endswith("/sessions/" + args.session_id)
-               for link in result.get("links", [])):
-            matches.append(file)
-    if len(matches) != 1:
-        parser.error("Expected exactly one original result linked to this session")
+    try:
+        matched_result = find_session_result(source, args.session_id)
+    except ValueError as error:
+        parser.error(str(error))
 
     settings = MobileSettings.from_env_file()
     username, key = settings.username.get_secret_value(), settings.access_key.get_secret_value()
@@ -54,7 +74,7 @@ def main():
 
     destination = target / "allure-results"
     shutil.copytree(source, destination)
-    result_file = destination / matches[0].name
+    result_file = destination / matched_result.name
     result = json.loads(result_file.read_text())
     video_name = f"{uuid4()}-attachment.mp4"
     shutil.copy2(artifacts / "video.mp4", destination / video_name)

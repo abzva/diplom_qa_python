@@ -13,7 +13,7 @@ from appium.webdriver.client_config import AppiumClientConfig
 
 from mobile.config import ROOT, MobileSettings
 from mobile.pages.search_page import SearchPage
-from mobile.reporting import attach_completed_session
+from mobile.reporting import SESSION_ID_LABEL, attach_completed_session
 from reporting import attach_driver_state, attach_json, diagnostic, register_cloud_credentials, safe_text
 
 
@@ -101,6 +101,7 @@ def mobile_driver(request, mobile_settings):
 
     try:
         metadata["session_id"] = driver.session_id
+        allure.dynamic.label(SESSION_ID_LABEL, driver.session_id)
         save_metadata()
         logger.info("BrowserStack session created; artifacts: %s", artifacts.relative_to(ROOT))
         yield driver

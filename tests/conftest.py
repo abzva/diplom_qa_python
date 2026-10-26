@@ -18,7 +18,7 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.remote.command import Command
 
-from diplom_qa_python.api.accounts import read_account_response, verify_login
+from diplom_qa_python.api.accounts import cleanup_account, read_account_response
 from diplom_qa_python.api.session import ApiSession
 from config import ROOT, settings, SelenoidSettings
 from models.account import CreateAccountRequest, Credentials
@@ -54,34 +54,11 @@ def account_data(request, api_session):
     credentials = Credentials(email=user.email, password=user.password)
     register_secrets(user.password, user.email)
 
-    def delete_user():
-        # Registered before POST: also runs if setup/UI/assertions fail.
-        # This separate copy always contains the original cleanup credentials.
-        current = verify_login(api_session, credentials)
-        if current.responseCode == 404:
-            assert current.message == "User not found!", current
-            logger.info("Cleanup confirmed for %s: account absent; DELETE skipped", credentials.email)
-            return
-
-        assert current.responseCode == 200, current
-        assert current.message == "User exists!", current
-        result = read_account_response(api_session.delete(
-            "/api/deleteAccount",
-            data=credentials.model_dump(),
-            timeout=settings.api_timeout,
-        ))
-        assert result.responseCode == 200, result
-        assert result.message == "Account deleted!", result
-
-        missing = verify_login(api_session, credentials)
-        assert missing.responseCode == 404, missing
-        assert missing.message == "User not found!", missing
-        logger.info("Cleanup confirmed for %s: account deleted and absence verified", credentials.email)
-
     def cleanup():
         with allure.step("Подтвердить отсутствие своего аккаунта; при необходимости удалить через API"):
-            delete_user()
+            cleanup_account(api_session, credentials)
 
+    # Registered before POST; the copy retains the original cleanup credentials.
     request.addfinalizer(cleanup)
     logger.info("Generated own account data for %s; cleanup registered", credentials.email)
     return user

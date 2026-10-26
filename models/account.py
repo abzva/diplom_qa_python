@@ -31,3 +31,18 @@ class AccountResponse(BaseModel):
 
     responseCode: StrictInt
     message: StrictStr
+
+
+class UserDetail(BaseModel):
+    model_config = ConfigDict(extra="ignore", hide_input_in_errors=True)
+
+    id: StrictInt
+    email: StrictStr = Field(repr=False)
+
+
+class UserLookupResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore", hide_input_in_errors=True)
+
+    responseCode: StrictInt
+    user: UserDetail | None = None
+    message: StrictStr | None = None

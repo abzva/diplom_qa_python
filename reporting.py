@@ -106,15 +106,21 @@ def attach_http_request(request):
 def attach_http_response(response, **kwargs):
     """Includes GET and fixture cleanup exchanges; response is not changed."""
     def collect():
-        try:
-            content = response.json()
-        except ValueError:
-            content = safe_text(response.text)
-        attach_json("API response", {
+        record = {
             "method": response.request.method, "url": safe_url(response.url),
             "http_status": response.status_code,
-            "content_type": response.headers.get("Content-Type"), "body": content,
-        })
+            "content_type": response.headers.get("Content-Type"),
+        }
+        try:
+            record["body"] = response.json()
+        except ValueError:
+            # Unknown HTML/form fields can contain secrets not registered locally.
+            body = response.text.lower()
+            record["body_format"] = (
+                "HTML; body omitted" if "<html" in body or "<!doctype html" in body
+                else "non-JSON; body omitted"
+            )
+        attach_json("API response", record)
     diagnostic("API response", collect)
     return response
 

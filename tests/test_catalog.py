@@ -1,6 +1,7 @@
 import allure
 
 from pages.catalog_page import CatalogPage
+from models.product import select_search_products
 
 
 pytestmark = [allure.parent_suite("UI"), allure.epic("UI"),
@@ -28,10 +29,10 @@ def test_search_finds_selected_catalog_product(browser):
     with allure.step("Сохранить название и ID товара из каталога"):
         catalog = CatalogPage(browser)
         catalog.open()
-        selected_product = catalog.select_product()
+        selected_product, unrelated_product = select_search_products(catalog.products())
 
     with allure.step("Найти товар через интерфейс"):
         catalog.search(selected_product.name)
 
     with allure.step("Проверить исходные ID и название в разделе результатов"):
-        catalog.should_show_search_result(selected_product)
+        catalog.should_show_search_result(selected_product, unrelated_product)

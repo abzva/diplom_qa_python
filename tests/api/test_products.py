@@ -7,6 +7,7 @@ import allure
 from config import settings
 from diplom_qa_python.api.session import read_json_response
 from models.catalog import ProductsResponse, SearchErrorResponse, SearchProductRequest
+from models.product import select_search_products
 
 
 pytestmark = [allure.parent_suite("API"), allure.epic("API"),
@@ -42,8 +43,7 @@ def test_search_existing_product(api_session):
         catalog = ProductsResponse.model_validate(read_json_response(catalog_response))
         assert catalog.responseCode == 200, catalog
         assert catalog.products, "Cannot select a product from an empty catalog"
-        selected_product = catalog.products[0]
-        assert selected_product.name.strip(), "Cannot search for an empty product name"
+        selected_product, unrelated_product = select_search_products(catalog.products)
         search = SearchProductRequest(search_product=selected_product.name)
 
     with allure.step("Отправить POST поиска с сериализованной моделью"):
@@ -58,6 +58,9 @@ def test_search_existing_product(api_session):
         matches = [product for product in results.products if product.id == selected_product.id]
         assert matches, f"Product {selected_product.id} was not found by its catalog name"
         assert all(product.name == selected_product.name for product in matches), matches
+        assert unrelated_product.id not in {product.id for product in results.products}, (
+            f"Unrelated catalog product {unrelated_product.id} returned for {selected_product.name!r}"
+        )
         logger.info("Found catalog product id=%s, name=%r", selected_product.id, selected_product.name)
 
 

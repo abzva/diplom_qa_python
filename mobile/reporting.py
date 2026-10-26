@@ -8,6 +8,9 @@ import requests
 from reporting import attach_json, diagnostic, safe_url
 
 
+SESSION_ID_LABEL = "browserstack_session_id"
+
+
 def attach_completed_session(session_id, username, access_key, artifacts):
     record = {"session_id": session_id, "video_attached": False}
 

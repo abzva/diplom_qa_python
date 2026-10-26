@@ -61,16 +61,20 @@ class CatalogPage:
         self.wait.until(conditions.element_to_be_clickable(self.SEARCH_SUBMIT)).click()
         logger.info("UI: submitted product search for %r", name)
 
-    def should_show_search_result(self, expected: ProductSnapshot):
+    def should_show_search_result(self, expected: ProductSnapshot, unrelated: ProductSnapshot):
         # The same listing becomes the results section after the UI submits search.
         # Wait for its new heading before reading cards, never use the old catalog.
         self.wait.until(conditions.text_to_be_present_in_element(self.TITLE, "SEARCHED PRODUCTS"))
         self.wait.until(conditions.visibility_of_element_located(self.TITLE))
-        matches = [product for product in self.products()
+        products = self.products()
+        matches = [product for product in products
                    if product.product_id == expected.product_id]
         assert matches, f"Product id={expected.product_id} is missing from search results"
         assert all(product.name == expected.name for product in matches), (
             f"Search result name differs from catalog name {expected.name!r}: {matches}"
+        )
+        assert unrelated.product_id not in {product.product_id for product in products}, (
+            f"Unrelated catalog product id={unrelated.product_id} returned for {expected.name!r}"
         )
         logger.info("UI: search results contain id=%s, name=%r", expected.product_id, expected.name)
 
