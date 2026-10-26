@@ -3,10 +3,9 @@
 import logging
 
 import allure
-import requests
 
 from config import settings
-from diplom_qa_python.api.session import read_json
+from diplom_qa_python.api.session import read_json_response
 from models.catalog import ProductsResponse, SearchErrorResponse, SearchProductRequest
 
 
@@ -15,20 +14,6 @@ pytestmark = [allure.parent_suite("API"), allure.epic("API"),
 
 
 logger = logging.getLogger(__name__)
-
-
-def read_json_response(response: requests.Response) -> dict:
-    logger.info(
-        "%s %s -> HTTP %s; Content-Type: %s",
-        response.request.method, response.url, response.status_code,
-        response.headers.get("Content-Type"),
-    )
-    assert response.status_code == 200, f"Unexpected HTTP status: {response.status_code}"
-    # This API sends JSON with text/html; do not require application/json.
-    body = read_json(response)
-    assert isinstance(body, dict), "Expected a JSON object"
-    logger.info("API body: responseCode=%s", body.get("responseCode"))
-    return body
 
 
 @allure.title("API-01: GET каталога возвращает данные товаров")

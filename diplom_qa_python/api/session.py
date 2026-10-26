@@ -35,6 +35,20 @@ def read_json(response: requests.Response):
         raise
 
 
+def read_json_response(response: requests.Response) -> dict:
+    logger.info(
+        "%s %s -> HTTP %s; Content-Type: %s",
+        response.request.method, response.url, response.status_code,
+        response.headers.get("Content-Type"),
+    )
+    assert response.status_code == 200, f"Unexpected HTTP status: {response.status_code}"
+    # This API sends JSON with text/html; do not require application/json.
+    body = read_json(response)
+    assert isinstance(body, dict), "Expected a JSON object"
+    logger.info("API body: responseCode=%s", body.get("responseCode"))
+    return body
+
+
 class ApiSession(ReportingSession):
     def __init__(self, base_url: str):
         super().__init__()

@@ -1,6 +1,6 @@
 # Запуск и конфигурация
 
-[README](../README.md) · [Результаты и требования](validation.md)
+[README](../README.md) · [Результаты](validation.md)
 
 ## Установка
 
@@ -25,11 +25,11 @@ TMPDIR="$PWD/.tmp/pip" .venv/bin/python -m pip install \
 
 Selenoid и Mobile читают только корневой `.env` через `python-dotenv`: переменные процесса не заменяют значения этого файла. Для нового клона создайте `.env` по образцу `.env.example`; существующий файл сохраняйте. В Jenkins предоставляйте его через механизм секретов, вне Git и консольного вывода.
 
-Mobile реализован только через BrowserStack. Локальный Android/Appium-режим отсутствует, хотя [требования QA.GURU](https://github.com/qa-guru/diploma-requirements/wiki/MOBILE-тестирование-Python) предусматривают оба режима. Одобрение этого отклонения преподавателем не подтверждено.
+Mobile-тесты запускаются в BrowserStack App Automate.
 
 Скачивание видео требует прямого доступа к хранилищу: оно не использует `.netrc` и proxy/CA-переменные процесса; TLS-проверка включена.
 
-## Локальный запуск
+## Запуск из терминала
 
 Каждая команда создаёт отдельный каталог результатов. По умолчанию pytest выбирает `tests/` — 14 UI/API-тестов. Для Mobile каталог указывается явно.
 
@@ -57,12 +57,18 @@ mkdir -p "$RUN_DIR"
 
 Chrome работает headless; `--headed` показывает окно. Для общего локального UI/API-прогона используйте `tests` вместо списка UI-модулей и новый `RUN_DIR`.
 
-**Mobile — 3 теста через BrowserStack:**
+<a id="mobile-browserstack"></a>
+
+### Mobile · BrowserStack App Automate
+
+Appium Python Client управляет Wikipedia Android sample. Три сценария проверяют поиск статьи, замену запроса и очистку результатов. `mobile/config.py` валидирует пять полей корневого `.env`: `BROWSERSTACK_USERNAME`, `BROWSERSTACK_ACCESS_KEY`, `BROWSERSTACK_APP_URL`, `BROWSERSTACK_DEVICE_NAME`, `BROWSERSTACK_PLATFORM_VERSION`. Идентификатор приложения `bs://…` берётся из своего App Automate.
+
+Последовательный запуск без повторной загрузки APK и ретраев; `--maxfail=1` останавливает прогон при первой ошибке:
 
 ```bash
 RUN_DIR=".artifacts/runs/mobile-$(date -u +%Y%m%dT%H%M%S)"
 mkdir -p "$RUN_DIR"
-.venv/bin/python -m pytest mobile -v \
+.venv/bin/python -m pytest mobile -v --maxfail=1 \
   --basetemp="$RUN_DIR/pytest-tmp" --alluredir="$RUN_DIR/allure-results" \
   --junitxml="$RUN_DIR/junit.xml" --log-file="$RUN_DIR/run.log"
 ```
@@ -93,11 +99,11 @@ mkdir -p "$RUN_DIR"
 
 Для пробного запуска одного UI-теста замените `tests` на `tests/test_catalog.py::test_catalog_has_products_with_names_prices_and_detail_links`. Фикстура создаёт новую сессию на тест, сохраняет диагностику, вызывает `quit()` и запрашивает видео завершённой сессии.
 
-Передавайте в публикацию результаты только текущего `$RUN_DIR`, включая упавшие запуски. Сохраняйте ненулевой код выхода pytest; не заменяйте его успешным кодом загрузчика отчёта. Передача результатов UI/API в [TestOps](https://allure.qa.guru/jobrun/56202) подтверждена. **Mobile в Jenkins пока не проверен.**
+Передавайте в публикацию результаты только текущего `$RUN_DIR`, включая упавшие запуски. Сохраняйте ненулевой код выхода pytest; не заменяйте его успешным кодом загрузчика отчёта. Передача результатов UI/API в [TestOps](https://allure.qa.guru/jobrun/56202) подтверждена.
 
 ## Allure Report и TestOps
 
-`allure-results` — исходные JSON и вложения. **Allure Report** — генерируемый HTML-отчёт; **Allure TestOps** — отдельный сервис хранения результатов и тест-кейсов. Успешная загрузка в TestOps не подтверждает публикацию Allure Report в Jenkins.
+`allure-results` — исходные JSON и вложения. **Allure Report** — генерируемый HTML-отчёт; **Allure TestOps** — отдельный сервис хранения результатов и тест-кейсов.
 
 При установленном Allure CLI для выбранного `$RUN_DIR`:
 
@@ -106,7 +112,7 @@ allure generate "$RUN_DIR/allure-results" -o "$RUN_DIR/allure-report"
 allure open "$RUN_DIR/allure-report"
 ```
 
-`allure-pytest` не устанавливает Allure CLI. В Jenkins публикацию настраивают для каталога результатов текущей сборки; рабочая ссылка на опубликованный Allure Report пока не подтверждена.
+`allure-pytest` не устанавливает Allure CLI. В Jenkins публикацию настраивают для каталога результатов текущей сборки. [Allure Report сборки #7](https://jenkins.qa.guru/job/anastasia-diplom-python-ci/7/allure/) опубликован.
 
 ## Позднее видео BrowserStack
 

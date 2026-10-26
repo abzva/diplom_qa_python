@@ -37,7 +37,7 @@ def search_page(request, mobile_driver, mobile_settings):
 
 
 @pytest.hookimpl(hookwrapper=True)
-def pytest_runtest_makereport(item, call):
+def pytest_runtest_makereport(item):
     outcome = yield
     report = outcome.get_result()
     if report.when == "call":

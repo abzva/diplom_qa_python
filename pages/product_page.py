@@ -62,7 +62,7 @@ class ProductPage:
         ))
         field.clear()
         field.send_keys(str(quantity))
-        self.wait.until(lambda driver: field.get_attribute("value") == str(quantity))
+        self.wait.until(lambda _: field.get_attribute("value") == str(quantity))
         logger.info("UI: set product quantity to %s before adding", quantity)
 
     def add_to_cart(self):

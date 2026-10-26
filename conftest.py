@@ -16,7 +16,7 @@ def pytest_unconfigure(config):
 
 
 @pytest.hookimpl(hookwrapper=True, trylast=True)
-def pytest_runtest_makereport(item, call):
+def pytest_runtest_makereport():
     outcome = yield
     report = outcome.get_result()
     if report.failed:

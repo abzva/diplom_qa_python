@@ -1,4 +1,4 @@
-# Результаты и требования
+# Результаты запусков
 
 [README](../README.md) · [Запуск](running.md)
 
@@ -14,43 +14,34 @@
 
 Результаты относятся к указанному коммиту.
 
-## Mobile
+[Allure Report сборки #7](https://jenkins.qa.guru/job/anastasia-diplom-python-ci/7/allure/) опубликован.
 
-Три сценария отдельно проходили через BrowserStack: **3 passed за 98,24 с**. Wikipedia sample **2.5.194-alpha-2017-05-30**, Samsung Galaxy S23 / Android 13.0.
+## Mobile · 26.10.2026
 
-| Сценарий | Сессия |
-|---|---|
-| Поиск Python | [MOBILE-01](https://app-automate.browserstack.com/builds/da672467ece5b15b759b1503dd8ae8c7852be96a/sessions/4189c12c3d75e1b918a4232ce6cd1d7cf54a17c6) |
-| Замена запроса | [MOBILE-02](https://app-automate.browserstack.com/builds/da672467ece5b15b759b1503dd8ae8c7852be96a/sessions/041756a0f2e2550eadef6c480a31949fbcd34d2a) |
-| Очистка запроса | [MOBILE-03](https://app-automate.browserstack.com/builds/da672467ece5b15b759b1503dd8ae8c7852be96a/sessions/1339b106a6c2b64a75e759fc1ae2b0d65d7cfcff) |
+**3 passed за 161,73 с** — последовательный запуск рабочей версии от 26.10.2026. Wikipedia sample **2.5.194-alpha-2017-05-30**, Samsung Galaxy S23 / Android 13.0, BrowserStack App Automate.
 
-Для отдельного [запуска MOBILE-01 с Allure](https://app-automate.browserstack.com/builds/08f506e141fa67697527228d24e16182ed0f5b34/sessions/0a0ce7880f0af9ea4a62b2705b7fd4a47c320612) MP4 получен после завершения сессии и добавлен в копию результатов. Ссылки BrowserStack могут требовать авторизации.
+| Тест | Сценарий и сессия | Результат | Завершение |
+|---|---|---|---|
+| MOBILE-01 | [Поиск Python](https://app-automate.browserstack.com/builds/08f506e141fa67697527228d24e16182ed0f5b34/sessions/38badb2028a471bbeea391fbdf8a2b93afe4c32a) | passed | Закрыта; BrowserStack: passed |
+| MOBILE-02 | [Замена запроса](https://app-automate.browserstack.com/builds/08f506e141fa67697527228d24e16182ed0f5b34/sessions/7eac79ae6dd94226404626c7b488fc5306f05c5f) | passed | Закрыта; BrowserStack: passed |
+| MOBILE-03 | [Очистка запроса](https://app-automate.browserstack.com/builds/08f506e141fa67697527228d24e16182ed0f5b34/sessions/58b02e19e0e9f60c52dba8b838057a35caa81320) | passed | Закрыта; BrowserStack: passed |
 
-Mobile в Jenkins не проверен; общего прогона всех 17 тестов не было. Это старое учебное приложение: покрыт поиск, а открытие статьи ранее возвращало `An error occurred` и не входит в текущие сценарии.
+Все три вызова `quit()` завершились успешно; ошибок teardown и обновления статуса BrowserStack нет. Для каждой сессии подтверждено пустое начальное состояние поиска.
 
-## Соответствие заданию и QA.GURU
+При teardown видео не прикрепилось: сервер вернул HTTP 200 и Content-Type MP4, но содержимое не прошло проверку формата. Отдельное получение через `mobile.attach_video` для MOBILE-01 завершилось `ReadTimeout` при чтении данных сессии. Видео нового прогона не получены и не просмотрены; исходные результаты сохранены.
 
-Основание — [Python Base](https://github.com/qa-guru/diploma-requirements/wiki/Python-Base) и связанные страницы [общих](https://github.com/qa-guru/diploma-requirements/wiki/Общие-требования-к-дипломy-Python), [UI](https://github.com/qa-guru/diploma-requirements/wiki/UI-тестирование-Python), [API](https://github.com/qa-guru/diploma-requirements/wiki/API-тестирование-Python) и [Mobile](https://github.com/qa-guru/diploma-requirements/wiki/MOBILE-тестирование-Python) требований.
+Ссылки BrowserStack могут требовать авторизации. Результаты Mobile сохранены отдельно от опубликованного UI/API-отчёта Jenkins; они не загружены в TestOps.
 
-| Требование | Состояние |
-|---|---|
-| UI: минимум 7 тестов, бизнес-модули, Page Objects, шаги Allure | 8 тестов в четырёх модулях; реализовано |
-| API: минимум 5 тестов, GET/POST/DELETE, относительные endpoint, модели запросов/ответов, проверки статуса и содержимого, логирование | 6 тестов; реализовано |
-| Mobile: минимум 3 теста, настройки Pydantic/dotenv, фикстуры и Allure | 3 теста; реализован удалённый режим |
-| Mobile: локальный и удалённый режимы с отдельными конфигурациями | Только BrowserStack. Это выбранный объём проекта; одобрение отклонения преподавателем не подтверждено |
-| Public-репозиторий, README, requirements.txt, .gitignore, разделение по пакетам, ссылка на Jenkins | Репозиторий доступен публично; файлы и ссылка есть. Общий API-код в `diplom_qa_python`, Page Objects и модели — в отдельных пакетах |
-| Опубликованный Allure Report в Jenkins и ссылка в README | Не подтверждены |
-| Подготовка пользователя через API для UI-сценария — задание проекта | Реализована в UI-01 |
-| Ручные кейсы в TestOps — задание проекта | MAN-01–MAN-05 созданы; 23 шага с ожидаемыми результатами, статус «Черновик», полный ручной прогон не выполнен |
-| Mobile в Jenkins и профиль GitHub со ссылками — оставшиеся пункты проекта | Завершение не подтверждено |
+## Реализация
 
-**Рекомендации wiki:** параметризация, тесты работы с файлами, дополнительные метки Allure и Telegram-уведомление. HTML-вложение UI указано как необязательное. Ссылка TestOps в общей wiki приветствуется; ручные кейсы входят в задание этого проекта. Эти пожелания не следует смешивать с обязательными минимумами тестов и двумя режимами Mobile.
+- UI: [Page Objects](../pages/) и восемь сценариев в `tests/`.
+- API: [Pydantic-модели](../models/) формируют body POST-запросов и десериализуют ответы; шесть сценариев в `tests/api/`.
+- Связь API/UI: [фикстура `test_user`](../tests/conftest.py) создаёт аккаунт для UI-входа; очистка подтверждает его отсутствие.
+- Mobile: [конфигурация](../mobile/config.py), [Page Object Wikipedia](../mobile/pages/search_page.py), [три сценария](../mobile/test_search.py).
+- Ручные кейсы: [MAN-01–MAN-05, #54176–54180](https://allure.qa.guru/project/5398/test-cases); 23 шага с ожидаемыми результатами, статус «Черновик». Полный ручной прогон не выполнен.
 
-## Осталось перед сдачей
+## Границы результатов
 
-1. Проверить Mobile в Jenkins и сохранить результаты.
-2. Опубликовать Allure Report в Jenkins и добавить рабочую ссылку.
-3. Выполнить пять ручных кейсов в [TestOps](https://allure.qa.guru/project/5398/test-cases), записав фактические результаты.
-4. Завершить профиль GitHub со ссылками на дипломный проект.
-5. Закрыть расхождение с требованием локального Mobile-режима: реализовать его либо получить подтверждение допустимости BrowserStack-only.
-6. Проверить воспроизведение UI-видео и наличие вложений у всех восьми UI-тестов.
+UI/API и Mobile выполнены отдельными запусками. Wikipedia sample — старое учебное приложение: покрыт поиск; открытие статьи ранее возвращало `An error occurred` и не входит в сценарии.
+
+Сохранённые скриншоты относятся к датам, указанным в [описании изображений](images/README.md). Скачивание MP4 и проверка формата не означают полного просмотра видео.
