@@ -26,6 +26,8 @@ def main():
     source, target = project_path(args.results), project_path(args.output)
     if target.exists():
         parser.error("Output already exists; choose a new directory to preserve diagnostics")
+    if target.is_relative_to(source):
+        parser.error("Output must be outside the original results directory")
     if not args.session_id.isalnum():
         parser.error("Expected an alphanumeric BrowserStack session ID")
 

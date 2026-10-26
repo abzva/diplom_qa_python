@@ -19,7 +19,6 @@ def pytest_unconfigure(config):
 def pytest_runtest_makereport(item, call):
     outcome = yield
     report = outcome.get_result()
-    setattr(item, f"report_{report.when}", report)
     if report.failed:
         report.longrepr = safe_text(report.longrepr)
     report.sections = [(name, safe_text(text)) for name, text in report.sections]

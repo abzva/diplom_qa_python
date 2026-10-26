@@ -31,7 +31,6 @@ def test_create_account_accepts_original_credentials(account_data, api_session):
 
 @allure.title("API-05: Удалённый аккаунт больше не может войти")
 def test_delete_account_rejects_original_credentials(test_user, api_session):
-    """API-05: delete the prepared account and verify its credentials no longer work."""
     with allure.step("Удалить подготовленный аккаунт через DELETE"):
         credentials = Credentials(email=test_user.email, password=test_user.password)
         response = api_session.delete(
@@ -51,7 +50,6 @@ def test_delete_account_rejects_original_credentials(test_user, api_session):
 
 @allure.title("API-06: Неверный пароль отклонён, исходный продолжает работать")
 def test_wrong_password_does_not_change_existing_account(test_user, api_session):
-    """API-06: wrong password is rejected, original credentials still work."""
     with allure.step("Подготовить отличный пароль, сохранив исходные реквизиты"):
         original = Credentials(email=test_user.email, password=test_user.password)
         # Appending a suffix guarantees a different password without changing the original.

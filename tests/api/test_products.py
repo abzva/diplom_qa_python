@@ -1,9 +1,8 @@
 """Independent catalog/search tests: no accounts or browser required."""
 
-import allure
-
 import logging
 
+import allure
 import requests
 
 from config import settings
@@ -34,7 +33,6 @@ def read_json_response(response: requests.Response) -> dict:
 
 @allure.title("API-01: GET каталога возвращает данные товаров")
 def test_get_products_catalog(api_session):
-    """API-01: the catalog contains products with usable basic fields."""
     with allure.step("Получить каталог через GET"):
         response = api_session.get(
             "/api/productsList", timeout=settings.api_timeout,
@@ -52,7 +50,6 @@ def test_get_products_catalog(api_session):
 
 @allure.title("API-02: Поиск возвращает исходный ID и название товара")
 def test_search_existing_product(api_session):
-    """API-02: search returns the ID and name selected from a fresh catalog."""
     with allure.step("Получить каталог и выбрать данные для модели поиска"):
         catalog_response = api_session.get(
             "/api/productsList", timeout=settings.api_timeout,
@@ -81,7 +78,6 @@ def test_search_existing_product(api_session):
 
 @allure.title("API-03: Сервер отклоняет поиск без обязательного параметра")
 def test_search_without_required_parameter(api_session):
-    """API-03: the server, not local validation, rejects the missing field."""
     with allure.step("Исключить search_product из сериализованной модели"):
         search = SearchProductRequest(search_product="unused")
         # Deliberately remove the required field from a valid serialized request.

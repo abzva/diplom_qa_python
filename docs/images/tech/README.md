@@ -1,6 +1,6 @@
 # Логотипы технологий
 
-Логотипы обозначают используемые инструменты, а не статус сборки или интеграции. Они не взяты из чужих отчётов.
+Логотипы используемых инструментов и их источники.
 
 - `python.svg`: [источник](https://raw.githubusercontent.com/devicons/devicon/master/icons/python/python-original.svg).
 - `pytest.svg`: [источник](https://raw.githubusercontent.com/devicons/devicon/master/icons/pytest/pytest-original.svg).
