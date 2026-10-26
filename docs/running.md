@@ -95,7 +95,7 @@ mkdir -p "$RUN_DIR"
 
 ## Jenkins Freestyle и Selenoid
 
-Задача [anastasia-diplom-python-ci](https://jenkins.qa.guru/job/anastasia-diplom-python-ci/) — **Freestyle**. Подтверждённый UI/API-прогон: **14 passed за 62,02 с**, без ошибок teardown; 8 UI выполнены через Selenoid, 6 API прошли с подтверждённой очисткой четырёх аккаунтов.
+Задача [anastasia-diplom-python-ci](https://jenkins.qa.guru/job/anastasia-diplom-python-ci/) — **Freestyle**. Последний подтверждённый UI/API-прогон: коммит `cf1bbbb`, **14 passed за 70,01 с**, без ошибок teardown; 8 UI выполнены через Selenoid, 6 API прошли с подтверждённой очисткой четырёх аккаунтов. [Результаты →](validation.md)
 
 В рабочем каталоге Jenkins должны быть установлены зависимости в `.venv` и предоставлен `.env` с Selenoid-настройками. Для шага **Execute shell**:
 

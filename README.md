@@ -2,7 +2,7 @@
 
 Автотесты интернет-магазина **Automation Exercise** и Android-приложения **Wikipedia sample**: 8 UI-, 6 API- и 3 Mobile-сценария. Используются Page Objects, подготовка пользователя через API, модели Pydantic и отчётность Allure.
 
-**UI/API в Jenkins: 14 passed за 62,02 с.** Восемь UI-тестов выполнены через Selenoid. **Mobile: 3 passed за 161,73 с**, отдельный запуск 26.10.2026. [Результаты запусков →](docs/validation.md)
+**UI/API в Jenkins: 14 passed за 70,01 с**, коммит `cf1bbbb`. Восемь UI-тестов выполнены через Selenoid. **Mobile: 3 passed за 161,73 с**, отдельный запуск 26.10.2026 до последних исправлений отчётности. [Результаты запусков →](docs/validation.md)
 
 <p align="center">
   <img src="docs/images/tech/python.svg" width="44" height="44" alt="Python" title="Python"> 
@@ -13,7 +13,7 @@
 </p>
 <p align="center">Python · pytest · Selenium · requests · Pydantic · Appium · BrowserStack · Allure</p>
 
-Python — язык тестов; pytest — сценарии и фикстуры. Selenium управляет браузером, requests отправляет API-запросы, Pydantic проверяет модели и настройки. Appium Python Client управляет Android-приложением, BrowserStack App Automate предоставляет устройства, Selenoid — удалённые браузеры. python-dotenv читает настройки из `.env`. Jenkins запускает сборки; Allure Report показывает результаты и вложения, TestOps хранит результаты запусков и тест-кейсы.
+Selenium и Selenoid — UI, requests и Pydantic — API, Appium и BrowserStack — Mobile. Jenkins запускает тесты, Allure Report и TestOps хранят результаты и вложения.
 
 <p align="center">
   <a href="#products">Продукты</a> · <a href="#coverage">Покрытие</a> ·
@@ -31,7 +31,7 @@ Python — язык тестов; pytest — сценарии и фикстур�
 
 ## Покрытие · 17 сценариев
 
-Это 17 дипломных сценариев для реальных продуктов. Отдельные технические проверки в [`checks/`](checks/) проверяют обработку ошибок и отчётность без сети и секретов; в эти 17 сценариев они не входят. Запуск: `.venv/bin/python -B -m pytest checks -q`.
+Дополнительные технические проверки обработки ошибок и отчётности находятся в [`checks/`](checks/) и не входят в 17 сценариев. [Команды запуска →](docs/running.md)
 
 ### UI · 8
 
@@ -55,7 +55,7 @@ Python — язык тестов; pytest — сценарии и фикстур�
 
 ### Mobile · 3
 
-Mobile-тесты запускаются в BrowserStack App Automate. Wikipedia sample управляется через Appium Python Client; Pydantic проверяет настройки, python-dotenv читает корневой `.env`. **[Конфигурация и запуск Mobile →](docs/running.md#mobile-browserstack)**
+**[Конфигурация и запуск в BrowserStack →](docs/running.md#mobile-browserstack)**
 
 - **MOBILE-01** — поиск `Python programming` находит `Python (programming language)`.
 - **MOBILE-02** — замена запроса показывает `Selenium (software)` и убирает прежний результат.
@@ -63,7 +63,7 @@ Mobile-тесты запускаются в BrowserStack App Automate. Wikipedia
 
 ### Ручные кейсы · Allure TestOps
 
-Пять ручных кейсов перенесены в [проект TestOps](https://allure.qa.guru/project/5398/test-cases): условия, данные, приоритеты, 23 шага с отдельными ожидаемыми результатами и очистка. Кейсы имеют статус **«Черновик»**; полный ручной прогон ещё не выполнен.
+В [TestOps](https://allure.qa.guru/project/5398/test-cases) описаны пять ручных кейсов с условиями, шагами и ожидаемыми результатами. Статус — **«Черновик»**; полный ручной прогон ещё не выполнен.
 
 | Кейс | Проверка |
 |---|---|
@@ -75,9 +75,9 @@ Mobile-тесты запускаются в BrowserStack App Automate. Wikipedia
 
 ## Как связаны API и UI
 
-Фикстура создаёт уникального пользователя через API; Page Object выполняет UI-вход и проверяет имя. Очистка использует исходные реквизиты только своего тестового аккаунта и проверяет его наличие отдельным запросом по email, без пароля. Если отсутствие не подтверждено или произошла ошибка API, teardown завершается ошибкой «очистка не подтверждена». [Поведение очистки и поиска →](docs/running.md#api-checks)
+Фикстура создаёт уникального пользователя через API; Page Object выполняет UI-вход и проверяет имя. После теста аккаунт удаляется, его отсутствие подтверждается независимым запросом по email. Ошибки очистки делают прогон неуспешным. [Подробности →](docs/running.md#api-checks)
 
-Pydantic-модели формируют body POST-запросов через `model_dump()` и десериализуют ответы через `model_validate()`. HTTP-статус и бизнес-код проверяются отдельно; цены сравниваются через `Decimal`. Каждый тест использует отдельную сессию браузера или HTTP-клиента.
+Pydantic-модели формируют тела запросов и проверяют ответы. HTTP-статус и бизнес-код проверяются отдельно; цены сравниваются через `Decimal`. Каждый тест использует отдельную сессию браузера или HTTP-клиента.
 
 <a id="run"></a>
 
@@ -125,7 +125,7 @@ API и локальный UI работают без облачных рекви
 
 ## Отчётность и реальные материалы
 
-Allure: группы UI/API/Mobile, названия, шаги и безопасные вложения. **UI:** PNG, HTML и логи; **API:** запрос/ответ и транспортные ошибки (для не-JSON ответа — только метаданные, без тела); **Mobile:** ID сессии, PNG, page source, ссылка и видео при доступности. Секретные поля маскируются; экран и page source собираются до закрытия сессии.
+Allure содержит группы UI/API/Mobile, шаги и диагностические вложения: скриншоты, исходный код страниц, логи и API-обмены. Секретные поля маскируются, тела не-JSON ответов не сохраняются. Видео прикрепляется при доступности.
 
 <details>
 <summary><b>Automation Exercise и Wikipedia · 22.10.2026</b></summary>
@@ -140,13 +140,15 @@ Allure: группы UI/API/Mobile, названия, шаги и безопас
 
 </details>
 
-**[Mobile-видео · 22.10.2026 →](https://app-automate.browserstack.com/builds/08f506e141fa67697527228d24e16182ed0f5b34/sessions/0a0ce7880f0af9ea4a62b2705b7fd4a47c320612)** Поиск Python в Wikipedia в предыдущем запуске. MP4 получен после завершения сессии и добавлен в копию результатов Allure; это не видео нового прогона 26.10.2026. Для просмотра может требоваться авторизация в BrowserStack.
+**[Пример Mobile-видео · 22.10.2026 →](https://app-automate.browserstack.com/builds/08f506e141fa67697527228d24e16182ed0f5b34/sessions/0a0ce7880f0af9ea4a62b2705b7fd4a47c320612)** Поиск Python в Wikipedia; запись предыдущего запуска.
 
 ### Jenkins, Allure Report и TestOps
 
-[anastasia-diplom-python-ci](https://jenkins.qa.guru/job/anastasia-diplom-python-ci/) — задача **Freestyle**. Подтверждённый прогон коммита [4b051a9](https://github.com/abzva/diplom_qa_python/commit/4b051a9c88969be54811b81ac889333b472762bc): **14 passed за 62,02 с**, Python 3.14.4, Chrome 156.0.8078.47. Очистка четырёх аккаунтов подтверждена; ошибок teardown нет.
+[anastasia-diplom-python-ci](https://jenkins.qa.guru/job/anastasia-diplom-python-ci/) — задача **Freestyle**. Последний успешный прогон: коммит [cf1bbbb](https://github.com/abzva/diplom_qa_python/commit/cf1bbbb3dc18cc2f213748d7d0894e92f3380abb), **14 passed за 70,01 с**, Python 3.14.4, Chrome 156.0.8078.47. Очистка четырёх аккаунтов подтверждена; ошибок teardown нет.
 
-**[Allure Report · Jenkins #7](https://jenkins.qa.guru/job/anastasia-diplom-python-ci/7/allure/) опубликован.** Результаты загружены в [TestOps, jobrun #56202](https://allure.qa.guru/jobrun/56202) без ошибок. Ниже — скриншоты [запуска #56722](https://allure.qa.guru/launch/56722), сделанные 25.10.2026. Для просмотра сервисов может потребоваться авторизация.
+Allure Report сформирован и архивирован в Jenkins. Результаты загружены в **[TestOps, jobrun #56212](https://allure.qa.guru/jobrun/56212)** без ошибок.
+
+Ниже — примеры отчётности из [предыдущего запуска #56722](https://allure.qa.guru/launch/56722), скриншоты от 25.10.2026.
 
 [![Allure TestOps: 14 успешных тестов, 100%](docs/images/testops_launch_overview.png)](https://allure.qa.guru/launch/56722)
 
@@ -157,7 +159,7 @@ Allure: группы UI/API/Mobile, названия, шаги и безопас
 
 [![UI-06: успешные шаги проверки корзины](docs/images/testops_ui_steps.png)](https://allure.qa.guru/launch/56722/tree/1153434)
 
-**Вложения UI-06:** логи, HTML страницы, сведения о Selenoid, PNG и MP4 «Видео Selenoid» (396,76 КБ). [Открыть вложения и видео →](https://allure.qa.guru/launch/56722/tree/1153434/attachments)
+**Вложения UI-06:** логи, HTML страницы, сведения о Selenoid, скриншот и видео. [Открыть вложения →](https://allure.qa.guru/launch/56722/tree/1153434/attachments)
 
 [![UI-06: диагностические вложения и видео Selenoid](docs/images/testops_ui_attachments.png)](https://allure.qa.guru/launch/56722/tree/1153434/attachments)
 
@@ -173,10 +175,6 @@ Allure: группы UI/API/Mobile, названия, шаги и безопас
 
 ## Результаты и ограничения
 
-UI/API и Mobile выполняются отдельными запусками. [Результаты и ссылки на сессии](docs/validation.md). В Mobile-прогоне 26.10.2026 все три теста прошли и сессии закрыты; видео этого прогона получить не удалось.
-
-Wikipedia sample — старое учебное приложение; покрыт поиск. Открытие статьи не входит в сценарии: ранее оно возвращало `An error occurred`.
-
-MP4-вложение Selenoid подтверждено в одиночном UI-запуске. Полный просмотр всех UI-видео не подтверждён. Сервисы отчётности и BrowserStack могут требовать авторизации.
+UI/API и Mobile выполняются отдельно. После исправлений Mobile-отчётности повторно проверен один сценарий поиска; полный прогон трёх сценариев выполнен ранее. Видео Mobile-прогона 26.10.2026 не получены. История проверок и ограничения материалов сохранены в [результатах](docs/validation.md). Сервисы отчётности и BrowserStack могут требовать авторизации.
 
 [Инструкции запуска](docs/running.md) · [Результаты](docs/validation.md)
