@@ -1,12 +1,12 @@
 """API endpoints relative to the base URL selected by the pytest fixture."""
 
 import logging
+from typing import Any
 from urllib.parse import urlsplit
 
 import requests
 
 from reporting import ReportingSession, safe_text
-
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +16,10 @@ def response_summary(response: requests.Response) -> str:
     body = response.text.lower()
     if "<html" in body or "<!doctype html" in body:
         description = "HTML"
-        if "one moment, please..." in body and "please wait while your request is being verified" in body:
+        if (
+            "one moment, please..." in body
+            and "please wait while your request is being verified" in body
+        ):
             description = "HTML verification page (One moment, please...)"
     else:
         description = "non-JSON body"
@@ -25,7 +28,7 @@ def response_summary(response: requests.Response) -> str:
     return f"{endpoint}: HTTP {response.status_code}; Content-Type={content_type!r}; {description}"
 
 
-def read_json(response: requests.Response):
+def read_json(response: requests.Response) -> object:
     try:
         return response.json()
     except requests.exceptions.JSONDecodeError as error:
@@ -38,7 +41,9 @@ def read_json(response: requests.Response):
 def read_json_response(response: requests.Response) -> dict:
     logger.info(
         "%s %s -> HTTP %s; Content-Type: %s",
-        response.request.method, response.url, response.status_code,
+        response.request.method,
+        response.url,
+        response.status_code,
         response.headers.get("Content-Type"),
     )
     assert response.status_code == 200, f"Unexpected HTTP status: {response.status_code}"
@@ -50,12 +55,21 @@ def read_json_response(response: requests.Response) -> dict:
 
 
 class ApiSession(ReportingSession):
-    def __init__(self, base_url: str):
+    def __init__(self, base_url: str) -> None:
         super().__init__()
         self.base_url = base_url.rstrip("/")
 
-    def request(self, method, url, **kwargs):
+    def request(
+        self,
+        method: str | bytes,
+        url: str | bytes,
+        *args: Any,
+        **kwargs: Any,
+    ) -> requests.Response:
+        # Forward requests' heterogeneous positional and keyword options unchanged.
+        if isinstance(url, bytes):
+            url = url.decode("utf-8")
         # Keep API calls relative; a caller cannot silently select another host.
         if not url.startswith("/") or url.startswith("//"):
             raise ValueError("Use an API endpoint starting with a single slash")
-        return super().request(method, self.base_url + url, **kwargs)
+        return super().request(method, self.base_url + url, *args, **kwargs)

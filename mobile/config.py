@@ -1,10 +1,10 @@
 """BrowserStack configuration read only when a Mobile fixture requests it."""
 
 from pathlib import Path
+from typing import Self
 
 from dotenv import dotenv_values
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
-
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -21,14 +21,20 @@ class MobileSettings(BaseModel):
 
     @field_validator("username", "access_key", "app_url", "device_name", "platform_version")
     @classmethod
-    def reject_placeholders(cls, value):
+    def reject_placeholders(cls, value: str | SecretStr) -> str | SecretStr:
         text = value.get_secret_value() if isinstance(value, SecretStr) else value
         if not text or text != text.strip() or "replace_" in text:
             raise ValueError("Fill this setting in the root .env without surrounding spaces")
         return value
 
     @classmethod
-    def from_env_file(cls):
+    def from_env_file(cls) -> Self:
         # Explicit file, no environment override and no ${...} interpolation.
         values = dotenv_values(ROOT / ".env", interpolate=False)
-        return cls.model_validate({field.alias: values.get(field.alias) for field in cls.model_fields.values() if field.alias})
+        return cls.model_validate(
+            {
+                field.alias: values.get(field.alias)
+                for field in cls.model_fields.values()
+                if field.alias
+            }
+        )

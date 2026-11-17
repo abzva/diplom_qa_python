@@ -2,7 +2,7 @@
 
 Автотесты интернет-магазина **Automation Exercise** и Android-приложения **Wikipedia sample**: 8 UI-, 6 API- и 3 Mobile-сценария. Используются Page Objects, подготовка пользователя через API, модели Pydantic и отчётность Allure.
 
-**UI/API в Jenkins: 14 passed за 70,01 с**, коммит `cf1bbbb`. [Отчёт TestOps](https://allure.qa.guru/jobrun/56212) · [Результаты UI/API и Mobile](docs/validation.md)
+[Результаты и ограничения](#status)
 
 <p align="center">
   <img src="docs/images/tech/python.svg" width="44" height="44" alt="Python" title="Python"> 
@@ -46,7 +46,7 @@
 - **API-02** — POST поиска: товар из свежего каталога найден; контрольный нерелевантный товар отсутствует.
 - **API-03** — POST поиска без обязательного поля: сервер возвращает ошибку.
 - **API-04** — POST создания аккаунта: исходные реквизиты принимаются.
-- **API-05** — DELETE аккаунта: прежние реквизиты больше не принимаются.
+- **API-05** — DELETE аккаунта: отсутствие по email подтверждено до cleanup, прежние реквизиты больше не принимаются.
 - **API-06** — неверный пароль отвергается, исходный продолжает работать.
 
 ### Mobile · 3
@@ -77,13 +77,17 @@ Pydantic-модели формируют тела запросов и прове
 
 ## Установка и запуск
 
-Проверено на **Python 3.13.7** локально и **3.14.4** в Jenkins. Для локального UI нужен Chrome. Команды для нового окружения выполняются из корня проекта в bash или zsh:
+Установка проверена на **Python 3.13.7**. Требуется Python **3.13+**, для локального UI — Chrome. Команды выполняются из корня проекта в bash или zsh:
 
 ```bash
 python3 -m venv .venv
+mkdir -p .tmp
 .venv/bin/python -m pip install -r requirements.txt
 .venv/bin/python -m pip check
 ```
+
+Для разработки установите `requirements-dev.txt`: в нём закреплены Ruff, mypy,
+pre-commit и их зависимости. [Установка Git-hook и проверки качества →](docs/running.md#quality)
 
 **UI — локальный Chrome, 8 тестов:**
 
@@ -109,6 +113,16 @@ RUN_DIR=".artifacts/runs/mobile-$(date -u +%Y%m%dT%H%M%S)"
 ```
 
 API и локальный UI работают без `.env`. Для Selenoid и BrowserStack заполните корневой `.env` по образцу [.env.example](.env.example). Для Mobile нужен APK, заранее загруженный в App Automate. [Настройка BrowserStack →](docs/running.md#mobile-browserstack)
+
+**Все 17 сценариев в одном отчёте — локальный UI, API и BrowserStack:**
+
+```bash
+RUN_DIR=".artifacts/runs/full-$(date -u +%Y%m%dT%H%M%S)"
+mkdir -p "$RUN_DIR"
+.venv/bin/python -m pytest tests mobile --ui-mode=local -v \
+  --alluredir="$RUN_DIR/allure-results" --junitxml="$RUN_DIR/junit.xml" \
+  --log-file="$RUN_DIR/run.log"
+```
 
 Технические проверки обработки ошибок и отчётности запускаются командой `.venv/bin/python -B -m pytest checks -q`. Они работают без сети и не входят в 17 продуктовых сценариев.
 
@@ -136,11 +150,11 @@ Allure содержит группы UI/API/Mobile, шаги, скриншоты
 
 ### Jenkins, Allure Report и TestOps
 
-[Задача Jenkins](https://jenkins.qa.guru/job/anastasia-diplom-python-ci/) запускает 8 UI-тестов через Selenoid и 6 API-тестов. В прогоне коммита [cf1bbbb](https://github.com/abzva/diplom_qa_python/commit/cf1bbbb3dc18cc2f213748d7d0894e92f3380abb) все тесты прошли; очистка четырёх аккаунтов подтверждена, ошибок teardown нет.
+[Задача Jenkins](https://jenkins.qa.guru/job/anastasia-diplom-python-ci/) предназначена для 8 UI-тестов через Selenoid и 6 API-тестов. [Сборка №9](https://jenkins.qa.guru/job/anastasia-diplom-python-ci/9/) от 13.11.2026 передала **14 успешных результатов** в [TestOps #57241](https://allure.qa.guru/launch/57241). Её коммит не подтверждён; этот запуск не считается проверкой текущей версии репозитория.
 
-Allure Report сформирован и архивирован в Jenkins. Результаты загружены в **[TestOps, jobrun #56212](https://allure.qa.guru/jobrun/56212)** без ошибок.
+На учебном TestOps срок хранения успешных сценариев, фикстур и вложений — 24 часа; очистка применяется к закрытым запускам. Для длительного хранения сохраняйте исходные результаты и Allure Report отдельно. [Настройки отчётности →](docs/running.md#allure-report-и-testops)
 
-Ниже — примеры отчётности из [предыдущего запуска #56722](https://allure.qa.guru/launch/56722), скриншоты от 25.10.2026.
+Ниже — сохранённые примеры из [запуска #56722](https://allure.qa.guru/launch/56722), сборка №6, скриншоты от 25.10.2026.
 
 [![Allure TestOps: 14 успешных тестов, 100%](docs/images/testops_launch_overview.png)](https://allure.qa.guru/launch/56722)
 
@@ -151,7 +165,7 @@ Allure Report сформирован и архивирован в Jenkins. Ре�
 
 [![UI-06: успешные шаги проверки корзины](docs/images/testops_ui_steps.png)](https://allure.qa.guru/launch/56722/tree/1153434)
 
-**Вложения UI-06:** логи, HTML страницы, сведения о Selenoid, скриншот и видео. [Открыть вложения →](https://allure.qa.guru/launch/56722/tree/1153434/attachments)
+**Вложения UI-06 на момент съёмки:** логи, HTML страницы, сведения о Selenoid, скриншот и видео.
 
 [![UI-06: диагностические вложения и видео Selenoid](docs/images/testops_ui_attachments.png)](https://allure.qa.guru/launch/56722/tree/1153434/attachments)
 
@@ -167,6 +181,18 @@ Allure Report сформирован и архивирован в Jenkins. Ре�
 
 ## Результаты и ограничения
 
-UI/API и Mobile выполняются отдельно. Полный Mobile-прогон от 26.10.2026: **3 passed за 161,73 с**. После исправлений отчётности повторно проверен один сценарий поиска; видео этих запусков не получены. [История проверок и материалы →](docs/validation.md)
+| Проверка от 13.11.2026 | Результат | Версия и среда |
+|---|---|---|
+| UI + API + Mobile | **17 passed, 192,53 с** | Python 3.13.7, локальный Chrome, BrowserStack; версия до дополнительной проверки отсутствия аккаунта в API-05 |
+| API-05 отдельно | **1 passed, 2,22 с** | Текущая версия сценария: отсутствие аккаунта проверяется по email до cleanup |
+
+Полный прогон завершился без ошибок teardown и пропусков; отсутствие четырёх
+тестовых аккаунтов подтверждено, три Mobile-сессии закрыты. После изменения API-05
+полный набор не повторялся. Текущая версия ещё не подтверждена полным прогоном Jenkins.
+
+- Mobile поддерживает только BrowserStack App Automate; нужны доступ к сервису и загруженный APK.
+- В полном прогоне автоматические Mobile-видео были отклонены как некорректные MP4; скриншоты и исходный код страниц сохранены. Доступна [загрузка позднего видео](docs/running.md#позднее-видео-browserstack) без повторного теста.
+- Внешние стенды могут возвращать сетевые ошибки, HTML вместо JSON и HTTP 503; успешный запуск не гарантирует их доступность.
+- Пять ручных кейсов остаются в статусе «Черновик», полный ручной прогон не выполнен.
 
 Для просмотра Jenkins, TestOps и BrowserStack может требоваться авторизация.

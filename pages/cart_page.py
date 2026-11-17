@@ -4,12 +4,12 @@ import logging
 from urllib.parse import urlsplit
 
 from selenium.webdriver.common.by import By
+from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions as conditions
 from selenium.webdriver.support.ui import WebDriverWait
 
 from config import settings
 from models.product import ProductSnapshot, parse_price
-
 
 logger = logging.getLogger(__name__)
 
@@ -23,32 +23,33 @@ class CartPage:
     ROWS = (By.CSS_SELECTOR, '#cart_info_table tbody tr[id^="product-"]')
     EMPTY_MESSAGE = (By.CSS_SELECTOR, "#cart_info #empty_cart p > b")
 
-    def __init__(self, browser):
+    def __init__(self, browser: WebDriver) -> None:
         self.browser = browser
         self.wait = WebDriverWait(browser, settings.ui_timeout)
 
-    def open(self):
+    def open(self) -> None:
         self.browser.get(f"{settings.base_url}/view_cart")
         self._wait_for_cart()
         logger.info("UI: opened the guest cart")
 
-    def continue_shopping(self):
+    def continue_shopping(self) -> None:
         self._wait_for_confirmation()
         self.wait.until(conditions.element_to_be_clickable(self.CONTINUE_SHOPPING)).click()
         self.wait.until(conditions.invisibility_of_element_located(self.MODAL))
         logger.info("UI: closed the added-product confirmation")
 
-    def open_from_confirmation(self):
+    def open_from_confirmation(self) -> None:
         self._wait_for_confirmation()
         self.wait.until(conditions.element_to_be_clickable(self.VIEW_CART)).click()
         self._wait_for_cart()
         logger.info("UI: opened the cart through View Cart in the confirmation")
 
-    def should_contain_exactly(self, expected: list[tuple[ProductSnapshot, int]]):
+    def should_contain_exactly(self, expected: list[tuple[ProductSnapshot, int]]) -> None:
         rows = self.wait.until(conditions.visibility_of_all_elements_located(self.ROWS))
         expected_ids = {f"product-{product.product_id}" for product, _ in expected}
         actual_ids = {row.get_attribute("id") for row in rows}
-        assert len(rows) == len(expected) and actual_ids == expected_ids, (
+        assert len(rows) == len(expected), f"Expected {len(expected)} cart rows, got {len(rows)}"
+        assert actual_ids == expected_ids, (
             f"Expected {len(expected)} cart rows {expected_ids}, got {len(rows)} rows {actual_ids}"
         )
         for product, quantity in expected:
@@ -60,18 +61,33 @@ class CartPage:
             assert all(element.is_displayed() for element in (name, price, count, total)), (
                 f"Cart fields must be visible for product {product.product_id}"
             )
-            assert urlsplit(name.get_attribute("href")).path == f"/product_details/{product.product_id}"
-            assert name.text.strip() == product.name, f"Unexpected name for product {product.product_id}"
-            assert parse_price(price.text) == product.price, f"Unexpected price for product {product.product_id}"
-            assert int(count.text.strip()) == quantity, f"Unexpected quantity for product {product.product_id}"
+            assert (
+                urlsplit(name.get_attribute("href")).path
+                == f"/product_details/{product.product_id}"
+            )
+            assert name.text.strip() == product.name, (
+                f"Unexpected name for product {product.product_id}"
+            )
+            assert parse_price(price.text) == product.price, (
+                f"Unexpected price for product {product.product_id}"
+            )
+            assert int(count.text.strip()) == quantity, (
+                f"Unexpected quantity for product {product.product_id}"
+            )
             assert parse_price(total.text) == product.price * quantity, (
                 f"Unexpected total for product {product.product_id}: {total.text!r}, "
                 f"expected {product.price} * {quantity}"
             )
-            logger.info("UI: cart id=%s, name=%r, price=%s, quantity=%s, total=%s",
-                        product.product_id, product.name, product.price, quantity, parse_price(total.text))
+            logger.info(
+                "UI: cart id=%s, name=%r, price=%s, quantity=%s, total=%s",
+                product.product_id,
+                product.name,
+                product.price,
+                quantity,
+                parse_price(total.text),
+            )
 
-    def remove(self, product: ProductSnapshot):
+    def remove(self, product: ProductSnapshot) -> None:
         locator = self._row_locator(product.product_id)
         row = self.wait.until(conditions.visibility_of_element_located(locator))
         button = row.find_element(By.CSS_SELECTOR, ".cart_quantity_delete")
@@ -81,22 +97,24 @@ class CartPage:
         self.wait.until_not(conditions.presence_of_element_located(locator))
         logger.info("UI: removed product id=%s; its row is absent", product.product_id)
 
-    def should_be_empty(self):
+    def should_be_empty(self) -> None:
         message = self.wait.until(conditions.visibility_of_element_located(self.EMPTY_MESSAGE))
         assert message.text == "Cart is empty!", message.text
-        self.wait.until(lambda driver: not driver.find_elements(*self.ROWS),
-                        message="Product rows remain in the empty cart")
+        self.wait.until(
+            lambda driver: not driver.find_elements(*self.ROWS),
+            message="Product rows remain in the empty cart",
+        )
         logger.info("UI: Cart is empty! is visible and no product rows remain")
 
-    def _wait_for_confirmation(self):
+    def _wait_for_confirmation(self) -> None:
         message = self.wait.until(conditions.visibility_of_element_located(self.ADDED_MESSAGE))
         assert message.text == "Your product has been added to cart.", message.text
         logger.info("UI: adding a product was confirmed")
 
-    def _wait_for_cart(self):
+    def _wait_for_cart(self) -> None:
         self.wait.until(lambda driver: urlsplit(driver.current_url).path == "/view_cart")
         self.wait.until(conditions.visibility_of_element_located(self.CART))
 
     @staticmethod
-    def _row_locator(product_id: int):
+    def _row_locator(product_id: int) -> tuple[str, str]:
         return By.CSS_SELECTOR, f"#cart_info_table tbody tr#product-{product_id}"

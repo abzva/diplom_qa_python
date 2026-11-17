@@ -1,149 +1,148 @@
 """A fresh remote session; diagnostics never prevent driver.quit()."""
 
-import json
 import logging
-from datetime import datetime, timezone
+from collections.abc import Generator, Iterator
+from datetime import UTC, datetime
 
+import allure
 import pytest
 import requests
-import allure
 from appium import webdriver
-from appium.options.android import UiAutomator2Options
 from appium.webdriver.client_config import AppiumClientConfig
+from pluggy import Result
+from selenium.common.exceptions import WebDriverException
+from urllib3.exceptions import HTTPError
 
+from mobile.browserstack import session_options, set_session_status
 from mobile.config import ROOT, MobileSettings
 from mobile.pages.search_page import SearchPage
-from mobile.reporting import SESSION_ID_LABEL, attach_completed_session
-from reporting import attach_driver_state, attach_json, diagnostic, register_cloud_credentials, safe_text
-
+from mobile.reporting import SESSION_ID_LABEL, attach_completed_session, save_session_metadata
+from reporting import attach_driver_state, diagnostic, register_cloud_credentials, safe_text
 
 logger = logging.getLogger(__name__)
+CALL_PASSED = pytest.StashKey[bool]()
+INITIAL_SEARCH_EMPTY = pytest.StashKey[bool]()
 
 
 @pytest.fixture
 @allure.title("Проверить локальные настройки BrowserStack")
-def mobile_settings():
+def mobile_settings() -> MobileSettings:
     return MobileSettings.from_env_file()
 
 
 @pytest.fixture
 @allure.title("Открыть поиск и проверить сброс состояния Wikipedia")
-def search_page(request, mobile_driver, mobile_settings):
+def search_page(
+    request: pytest.FixtureRequest,
+    mobile_driver: webdriver.Remote,
+    mobile_settings: MobileSettings,
+) -> SearchPage:
     page = SearchPage(mobile_driver, timeout=mobile_settings.timeout)
     with allure.step("Проверить пустой запрос, историю и отсутствие результатов в новой сессии"):
         page.open_fresh_search()
-    request.node.mobile_initial_search_empty = True
+    request.node.stash[INITIAL_SEARCH_EMPTY] = True
     return page
 
 
 @pytest.hookimpl(hookwrapper=True)
-def pytest_runtest_makereport(item):
+def pytest_runtest_makereport(item: pytest.Item) -> Generator[None, Result[pytest.TestReport]]:
     outcome = yield
     report = outcome.get_result()
     if report.when == "call":
-        item.mobile_call_passed = report.passed
+        item.stash[CALL_PASSED] = report.passed
 
 
 @pytest.fixture
 @allure.title("Новая Android-сессия; диагностика, закрытие и статус BrowserStack")
-def mobile_driver(request, mobile_settings):
+def mobile_driver(
+    request: pytest.FixtureRequest,
+    mobile_settings: MobileSettings,
+) -> Iterator[webdriver.Remote]:
     settings = mobile_settings
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
     artifacts = ROOT / ".artifacts" / "mobile" / f"{stamp}_{request.node.name}"
     artifacts.mkdir(parents=True)
-    metadata = {"device": settings.device_name, "os_version": settings.platform_version,
-                "quit_completed": False}
+    metadata = {
+        "device": settings.device_name,
+        "os_version": settings.platform_version,
+        "quit_completed": False,
+    }
     username = settings.username.get_secret_value()
     access_key = settings.access_key.get_secret_value()
     register_cloud_credentials(username, access_key)
 
-    def safe_error(error):
-        return f"{type(error).__name__}: {safe_text(error)}"
-
-    def save_metadata():
-        saved = diagnostic("Mobile session metadata", lambda: (artifacts / "session.json").write_text(
-            json.dumps(metadata, indent=2), encoding="utf-8",
-        ))
-        if not saved:
-            metadata.setdefault("diagnostic_errors", []).append("session_metadata_write_failed")
-            diagnostic("Mobile metadata fallback", lambda: attach_json(
-                "Mobile session metadata: file unavailable", metadata,
-            ))
-
-    options = UiAutomator2Options().load_capabilities({
-        "platformName": "Android",
-        "appium:automationName": "UiAutomator2",
-        "appium:deviceName": settings.device_name,
-        "appium:platformVersion": settings.platform_version,
-        "appium:app": settings.app_url,
-        "appium:language": "en",
-        "appium:locale": "US",
-        "appium:noReset": False,
-        "bstack:options": {
-            "projectName": "diplom_qa_python",
-            "buildName": "Wikipedia Allure reporting",
-            "sessionName": request.node.name,
-            "video": True,
-        },
-    })
+    options = session_options(settings, request.node.name)
     # Credentials are HTTP authentication, not part of the URL or capabilities.
     connection = AppiumClientConfig(
         remote_server_addr="https://hub-cloud.browserstack.com/wd/hub",
-        username=username, password=access_key, timeout=120,
+        username=username,
+        password=access_key,
+        timeout=120,
         init_args_for_pool_manager={"init_args_for_pool_manager": {"retries": 0}},
     )
     try:
         driver = webdriver.Remote(options=options, client_config=connection)
-    except Exception as error:
-        metadata["setup_error"] = safe_error(error)
-        save_metadata()
+    except (WebDriverException, HTTPError, OSError) as error:
+        metadata["setup_error"] = f"{type(error).__name__}: {safe_text(error)}"
+        save_session_metadata(metadata, artifacts)
         raise RuntimeError(metadata["setup_error"]) from None
 
+    session_id: str | None = None
     try:
-        metadata["session_id"] = driver.session_id
-        allure.dynamic.label(SESSION_ID_LABEL, driver.session_id)
-        save_metadata()
+        session_id = driver.session_id
+        assert isinstance(session_id, str), "Appium returned no session ID"
+        assert session_id, "Appium returned an empty session ID"
+        metadata["session_id"] = session_id
+        allure.dynamic.label(SESSION_ID_LABEL, session_id)
+        save_session_metadata(metadata, artifacts)
         logger.info("BrowserStack session created; artifacts: %s", artifacts.relative_to(ROOT))
         yield driver
     finally:
-        metadata["test_passed"] = getattr(request.node, "mobile_call_passed", False)
-        metadata["initial_search_empty"] = getattr(request.node, "mobile_initial_search_empty", False)
-        teardown_errors = []
+        metadata["test_passed"] = request.node.stash.get(CALL_PASSED, False)
+        metadata["initial_search_empty"] = request.node.stash.get(INITIAL_SEARCH_EMPTY, False)
+        teardown_errors: list[str] = []
         try:
-            try:
-                attach_driver_state(driver, artifacts, mobile=True)
-            except Exception as error:
-                metadata["diagnostics_error"] = safe_error(error)
-                logger.warning("Could not save Mobile diagnostics: %s", type(error).__name__)
+            diagnostic(
+                "Mobile driver state", lambda: attach_driver_state(driver, artifacts, mobile=True)
+            )
         finally:
             try:
                 driver.quit()
                 metadata["quit_completed"] = True
                 logger.info("BrowserStack session closed")
-            except Exception as error:
-                metadata["quit_error"] = safe_error(error)
-                teardown_errors.append(metadata["quit_error"])
+            except (WebDriverException, HTTPError, OSError) as error:
+                quit_error = f"{type(error).__name__}: {safe_text(error)}"
+                metadata["quit_error"] = quit_error
+                teardown_errors.append(quit_error)
             finally:
-                save_metadata()
-        # Mark the completed session, taking quit failure into account.
-        status = "passed" if metadata["test_passed"] and not teardown_errors else "failed"
-        try:
-            response = requests.put(
-                f"https://api-cloud.browserstack.com/app-automate/sessions/{metadata['session_id']}.json",
-                auth=(username, access_key), json={"status": status, "reason": f"{request.node.name}: {status}"},
-                timeout=(15, 30), allow_redirects=False,
-            )
-            response.raise_for_status()
-            if response.json()["automation_session"]["status"] != status:
-                raise ValueError("BrowserStack did not confirm the requested test status")
-            metadata["browserstack_status"] = status
-        except Exception as error:
-            metadata["status_update_error"] = safe_error(error)
-            teardown_errors.append(metadata["status_update_error"])
-        finally:
-            save_metadata()
-        diagnostic("completed BrowserStack session", lambda: attach_completed_session(
-            metadata["session_id"], username, access_key, artifacts,
-        ))
+                # Even an unexpected quit error must preserve metadata and a failed status.
+                status = (
+                    "passed" if metadata["test_passed"] and metadata["quit_completed"] else "failed"
+                )
+                try:
+                    set_session_status(
+                        session_id,
+                        username,
+                        access_key,
+                        status=status,
+                        reason=f"{request.node.name}: {status}",
+                    )
+                    metadata["browserstack_status"] = status
+                except (requests.RequestException, KeyError, TypeError, ValueError) as error:
+                    status_error = f"{type(error).__name__}: {safe_text(error)}"
+                    metadata["status_update_error"] = status_error
+                    teardown_errors.append(status_error)
+                finally:
+                    save_session_metadata(metadata, artifacts)
+                if metadata["quit_completed"] and isinstance(session_id, str) and session_id:
+                    diagnostic(
+                        "completed BrowserStack session",
+                        lambda: attach_completed_session(
+                            session_id,
+                            username,
+                            access_key,
+                            artifacts,
+                        ),
+                    )
         if teardown_errors:
             raise RuntimeError("; ".join(teardown_errors)) from None

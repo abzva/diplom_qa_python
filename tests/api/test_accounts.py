@@ -1,21 +1,29 @@
 import allure
 
-from diplom_qa_python.api.accounts import read_account_response, verify_login
 from config import settings
-from models.account import Credentials
+from diplom_qa_python.api.accounts import account_exists, read_account_response, verify_login
+from diplom_qa_python.api.session import ApiSession
+from models.account import CreateAccountRequest, Credentials
 
-
-pytestmark = [allure.parent_suite("API"), allure.epic("API"),
-              allure.feature("Аккаунты"), allure.suite("Аккаунты")]
+pytestmark = [
+    allure.parent_suite("API"),
+    allure.epic("API"),
+    allure.feature("Аккаунты"),
+    allure.suite("Аккаунты"),
+]
 
 
 @allure.title("API-04: Создание аккаунта делает реквизиты действительными")
-def test_create_account_accepts_original_credentials(account_data, api_session):
+def test_create_account_accepts_original_credentials(
+    account_data: CreateAccountRequest,
+    api_session: ApiSession,
+) -> None:
     """API-04: creation is the test action; the fixture only prepares data/cleanup."""
     with allure.step("Создать уникальный аккаунт через POST"):
         response = api_session.post(
             "/api/createAccount",
-            data=account_data.model_dump(), timeout=settings.api_timeout,
+            data=account_data.model_dump(),
+            timeout=settings.api_timeout,
         )
     with allure.step("Проверить HTTP 200, модель, бизнес-код 201 и сообщение"):
         created = read_account_response(response)
@@ -30,17 +38,26 @@ def test_create_account_accepts_original_credentials(account_data, api_session):
 
 
 @allure.title("API-05: Удалённый аккаунт больше не может войти")
-def test_delete_account_rejects_original_credentials(test_user, api_session):
+def test_delete_account_rejects_original_credentials(
+    test_user: CreateAccountRequest,
+    api_session: ApiSession,
+) -> None:
     with allure.step("Удалить подготовленный аккаунт через DELETE"):
         credentials = Credentials(email=test_user.email, password=test_user.password)
         response = api_session.delete(
             "/api/deleteAccount",
-            data=credentials.model_dump(), timeout=settings.api_timeout,
+            data=credentials.model_dump(),
+            timeout=settings.api_timeout,
         )
     with allure.step("Проверить HTTP 200, модель и сообщение удаления"):
         deleted = read_account_response(response)
         assert deleted.responseCode == 200, deleted
         assert deleted.message == "Account deleted!", deleted
+
+    with allure.step("Подтвердить отсутствие аккаунта по email до обязательной очистки"):
+        assert not account_exists(api_session, credentials.email), (
+            "Account still exists after the DELETE under test"
+        )
 
     with allure.step("Подтвердить отказ для исходных реквизитов"):
         missing = verify_login(api_session, credentials)
@@ -49,7 +66,10 @@ def test_delete_account_rejects_original_credentials(test_user, api_session):
 
 
 @allure.title("API-06: Неверный пароль отклонён, исходный продолжает работать")
-def test_wrong_password_does_not_change_existing_account(test_user, api_session):
+def test_wrong_password_does_not_change_existing_account(
+    test_user: CreateAccountRequest,
+    api_session: ApiSession,
+) -> None:
     with allure.step("Подготовить отличный пароль, сохранив исходные реквизиты"):
         original = Credentials(email=test_user.email, password=test_user.password)
         # Appending a suffix guarantees a different password without changing the original.

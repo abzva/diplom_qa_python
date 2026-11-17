@@ -1,11 +1,17 @@
 import allure
 
-pytestmark = [allure.parent_suite("Mobile"), allure.epic("Mobile"),
-              allure.feature("Поиск Wikipedia"), allure.suite("Поиск Wikipedia")]
+from mobile.pages.search_page import SearchPage
+
+pytestmark = [
+    allure.parent_suite("Mobile"),
+    allure.epic("Mobile"),
+    allure.feature("Поиск Wikipedia"),
+    allure.suite("Поиск Wikipedia"),
+]
 
 
 @allure.title("MOBILE-01: Поиск находит статью Python (programming language)")
-def test_search_finds_python_programming_language(search_page):
+def test_search_finds_python_programming_language(search_page: SearchPage) -> None:
     with allure.step("Ввести запрос Python programming"):
         search_page.search("Python programming")
     with allure.step("Проверить точную статью в результатах поиска"):
@@ -13,7 +19,7 @@ def test_search_finds_python_programming_language(search_page):
 
 
 @allure.title("MOBILE-02: Замена запроса обновляет результаты поиска")
-def test_replacing_query_updates_results(search_page):
+def test_replacing_query_updates_results(search_page: SearchPage) -> None:
     with allure.step("Найти статью Python и подтвердить исходное состояние"):
         search_page.search("Python programming")
         search_page.should_find_article("Python (programming language)")
@@ -25,7 +31,7 @@ def test_replacing_query_updates_results(search_page):
 
 
 @allure.title("MOBILE-03: Очистка удаляет запрос и прежние результаты")
-def test_clear_query_removes_text_and_previous_results(search_page):
+def test_clear_query_removes_text_and_previous_results(search_page: SearchPage) -> None:
     with allure.step("Найти статью Python и подтвердить исходные результаты"):
         search_page.search("Python programming")
         search_page.should_find_article("Python (programming language)")

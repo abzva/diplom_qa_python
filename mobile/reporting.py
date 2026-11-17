@@ -1,58 +1,90 @@
 """Attach a completed BrowserStack session without publishing signed video URLs."""
 
 import json
+from pathlib import Path
+from urllib.parse import urlsplit
 
 import allure
 import requests
+from urllib3.exceptions import HTTPError
 
+from mobile.browserstack import get_session
+from mobile.video import download_video
 from reporting import attach_json, diagnostic, safe_url
-
 
 SESSION_ID_LABEL = "browserstack_session_id"
 
 
-def attach_completed_session(session_id, username, access_key, artifacts):
+def save_session_metadata(metadata: dict, artifacts: Path) -> None:
+    # Independent operations: an unwritable file must not prevent an Allure record.
+    diagnostic(
+        "Mobile session metadata file",
+        lambda: (artifacts / "session.json").write_text(
+            json.dumps(metadata, indent=2),
+            encoding="utf-8",
+        ),
+    )
+    diagnostic(
+        "Mobile session metadata attachment",
+        lambda: attach_json(
+            "Mobile session metadata",
+            metadata,
+        ),
+    )
+
+
+def attach_video(url: str, artifacts: Path, record: dict) -> None:
+    path = artifacts / "video.mp4"
+    try:
+        download_video(url, path, record)
+    except (requests.RequestException, HTTPError, OSError, ValueError) as error:
+        # Exception messages can contain signed storage URLs; keep only the class.
+        record["video_error_type"] = type(error).__name__
+        raise
+    record["video_stage"] = "attach"
+    allure.attach.file(
+        str(path), name="Видео BrowserStack", attachment_type=allure.attachment_type.MP4
+    )
+    record["video_attached"] = True
+    record["video_stage"] = "attached"
+
+
+def attach_session_details(
+    session_id: str, username: str, access_key: str, artifacts: Path, record: dict
+) -> None:
+    session = get_session(session_id, username, access_key)
+    link = safe_url(session["browser_url"])
+    parsed = urlsplit(link)
+    if parsed.hostname != "app-automate.browserstack.com" or not parsed.path.rstrip("/").endswith(
+        f"/sessions/{session_id}"
+    ):
+        raise ValueError("BrowserStack returned a link to a different session")
+    record.update(
+        {
+            "session_url": link,
+            "status": session["status"],
+            "device": session.get("device"),
+            "os_version": session.get("os_version"),
+            "app_version": session.get("app_details", {}).get("app_version"),
+        }
+    )
+    allure.dynamic.link(link, name="BrowserStack: сессия и видео")
+    diagnostic("BrowserStack video", lambda: attach_video(session["video_url"], artifacts, record))
+
+
+def attach_completed_session(
+    session_id: str, username: str, access_key: str, artifacts: Path
+) -> None:
     record = {"session_id": session_id, "video_attached": False}
-
-    def collect():
-        response = requests.get(
-            f"https://api-cloud.browserstack.com/app-automate/sessions/{session_id}.json",
-            auth=(username, access_key), timeout=(15, 30), allow_redirects=False,
-        )
-        response.raise_for_status()
-        session = response.json()["automation_session"]
-        link = safe_url(session["browser_url"])
-        record.update({"session_url": link, "status": session["status"],
-                       "device": session.get("device"), "os_version": session.get("os_version"),
-                       "app_version": session.get("app_details", {}).get("app_version")})
-        allure.dynamic.link(link, name="BrowserStack: сессия и видео")
-
-        def video():
-            # Authentication is only for the API above. The signed storage URL
-            # must never be attached or receive our BrowserStack Basic Auth.
-            with requests.Session() as download:
-                # Ignore .netrc, proxy and CA environment settings; default TLS verification stays on.
-                download.trust_env = False
-                with download.get(session["video_url"], timeout=(15, 30), stream=True) as stream:
-                    record["video_http_status"] = stream.status_code
-                    record["video_content_type"] = stream.headers.get("Content-Type")
-                    stream.raise_for_status()
-                    content = bytearray()
-                    for chunk in stream.iter_content(64 * 1024):
-                        content.extend(chunk)
-                        record["video_bytes"] = len(content)
-                        if len(content) > 50 * 1024 * 1024:
-                            raise ValueError("Session video exceeds the 50 MiB diagnostic limit")
-                    record["video_is_mp4"] = b"ftyp" in content[:32]
-                    if not record["video_is_mp4"]:
-                        raise ValueError("Video response is not an MP4 container")
-                    path = artifacts / "video.mp4"
-                    path.write_bytes(content)
-                    allure.attach.file(str(path), name="Видео BrowserStack", attachment_type=allure.attachment_type.MP4)
-                    record.update({"video_attached": True, "video_bytes": len(content)})
-
-        diagnostic("BrowserStack video", video)
-
-    diagnostic("BrowserStack session details", collect)
+    diagnostic(
+        "BrowserStack session details",
+        lambda: attach_session_details(
+            session_id,
+            username,
+            access_key,
+            artifacts,
+            record,
+        ),
+    )
     (artifacts / "allure_session.json").write_text(json.dumps(record, indent=2), encoding="utf-8")
     attach_json("BrowserStack session and video availability", record)

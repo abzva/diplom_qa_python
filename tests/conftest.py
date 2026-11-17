@@ -1,50 +1,57 @@
 """Account lifecycle and a fresh local or Selenoid Chrome session per test."""
 
-import json
 import logging
-import os
-import re
 import secrets
 import tempfile
-from collections import Counter
+from collections.abc import Iterator
 from contextlib import ExitStack
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
-from urllib.parse import urlsplit
 
-import pytest
 import allure
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.remote.command import Command
+import pytest
+from selenium.webdriver.remote.webdriver import WebDriver
 
+from browser import start_local_browser
+from config import ROOT, SelenoidSettings, settings
 from diplom_qa_python.api.accounts import cleanup_account, read_account_response
 from diplom_qa_python.api.session import ApiSession
-from config import ROOT, settings, SelenoidSettings
 from models.account import CreateAccountRequest, Credentials
-from selenoid import start_remote_browser, attach_session_record, finish_remote_reporting
-from reporting import attach_driver_state, attach_json, diagnostic, register_secrets
-
+from pages.cart_page import CartPage
+from pages.catalog_page import CatalogPage
+from pages.login_page import LoginPage
+from pages.product_page import ProductPage
+from reporting import attach_browser_logs, attach_driver_state, diagnostic, register_secrets
+from selenoid import (
+    SelenoidRecord,
+    attach_session_record,
+    finish_remote_reporting,
+    start_remote_browser,
+)
 
 logger = logging.getLogger(__name__)
 
 
-def pytest_addoption(parser):
+def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption("--headed", action="store_true", help="Show the local Chrome window")
-    parser.addoption("--ui-mode", choices=("local", "selenoid"), default="local",
-                     help="UI driver mode; remote mode must be selected explicitly")
+    parser.addoption(
+        "--ui-mode",
+        choices=("local", "selenoid"),
+        default="local",
+        help="UI driver mode; remote mode must be selected explicitly",
+    )
 
 
 @pytest.fixture
 @allure.title("HTTP-сессия с безопасной диагностикой запросов и ответов")
-def api_session():
+def api_session() -> Iterator[ApiSession]:
     with ApiSession(base_url=settings.base_url) as session:
         yield session
 
 
 @pytest.fixture
 @allure.title("Уникальные данные своего аккаунта и обязательная очистка")
-def account_data(request, api_session):
+def account_data(request: pytest.FixtureRequest, api_session: ApiSession) -> CreateAccountRequest:
     unique_id = uuid4().hex
     user = CreateAccountRequest(
         name=f"Diploma {unique_id[:12]}",
@@ -54,24 +61,28 @@ def account_data(request, api_session):
     credentials = Credentials(email=user.email, password=user.password)
     register_secrets(user.password, user.email)
 
-    def cleanup():
-        with allure.step("Подтвердить отсутствие своего аккаунта; при необходимости удалить через API"):
+    def cleanup() -> None:
+        with allure.step(
+            "Подтвердить отсутствие своего аккаунта; при необходимости удалить через API"
+        ):
             cleanup_account(api_session, credentials)
 
     # Registered before POST; the copy retains the original cleanup credentials.
-    request.addfinalizer(cleanup)
+    request.addfinalizer(cleanup)  # noqa: PT021 - register cleanup before account creation can fail.
     logger.info("Generated own account data for %s; cleanup registered", credentials.email)
     return user
 
 
 @pytest.fixture
 @allure.title("Создать собственный аккаунт через API")
-def test_user(account_data, api_session):
-    result = read_account_response(api_session.post(
-        "/api/createAccount",
-        data=account_data.model_dump(),
-        timeout=settings.api_timeout,
-    ))
+def test_user(account_data: CreateAccountRequest, api_session: ApiSession) -> CreateAccountRequest:
+    result = read_account_response(
+        api_session.post(
+            "/api/createAccount",
+            data=account_data.model_dump(),
+            timeout=settings.api_timeout,
+        )
+    )
     assert result.responseCode == 201, result
     assert result.message == "User created!", result
     return account_data
@@ -79,94 +90,71 @@ def test_user(account_data, api_session):
 
 @pytest.fixture
 @allure.title("Новая сессия Chrome; диагностика и закрытие в teardown")
-def browser(request):
-    cache = ROOT / ".cache" / "selenium"
-    temporary = ROOT / ".tmp" / "chrome"
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+def browser(request: pytest.FixtureRequest) -> Iterator[WebDriver]:
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
     artifacts = ROOT / ".artifacts" / "ui" / f"{stamp}_{request.node.name}"
-    for directory in (cache, temporary, artifacts):
-        directory.mkdir(parents=True, exist_ok=True)
+    artifacts.mkdir(parents=True, exist_ok=True)
 
-    remote = None
-    record = None
+    remote: SelenoidSettings | None = None
+    record: SelenoidRecord | None = None
     with ExitStack() as stack:
         if request.config.getoption("--ui-mode") == "selenoid":
             remote = SelenoidSettings.from_env_file()
             driver, video_name = start_remote_browser(remote)
-            # Save these before quit: Selenium can clear session_id on shutdown.
-            record = {"session_id": driver.session_id, "video_name": video_name,
-                      "stage": "created", "quit_completed": False, "video_status": "pending"}
         else:
-            # Selenium Manager and Chrome keep their test data in this repository.
-            os.environ["SE_CACHE_PATH"] = str(cache)
-            os.environ["SE_AVOID_STATS"] = "true"
-            os.environ["SE_AVOID_BROWSER_DOWNLOAD"] = "true"
-            service_environment = {**os.environ, "TMPDIR": str(temporary)}
-            profile = stack.enter_context(tempfile.TemporaryDirectory(prefix="profile-", dir=temporary))
-            options = webdriver.ChromeOptions()
-            # Wait for DOM readiness; page objects wait for the actual UI state.
-            options.page_load_strategy = "eager"
-            if not request.config.getoption("--headed"):
-                options.add_argument("--headless=new")
-            options.add_argument("--window-size=1440,1000")
-            options.add_argument(f"--user-data-dir={profile}")
-            options.add_argument(f"--disk-cache-dir={profile}/cache")
-            options.set_capability("goog:loggingPrefs", {"browser": "ALL"})
-            options.add_experimental_option("prefs", {
-                "download.default_directory": str(artifacts / "downloads"),
-                "credentials_enable_service": False,
-                "profile.password_manager_enabled": False,
-            })
-            driver = webdriver.Chrome(options=options, service=Service(env=service_environment))
+            temporary = ROOT / ".tmp" / "chrome"
+            temporary.mkdir(parents=True, exist_ok=True)
+            profile = stack.enter_context(
+                tempfile.TemporaryDirectory(prefix="profile-", dir=temporary)
+            )
+            driver = start_local_browser(profile, headed=request.config.getoption("--headed"))
         try:
-            if record is not None:
-                diagnostic("Selenoid initial metadata", lambda: attach_session_record(record, artifacts))
+            if remote is not None:
+                # Save before quit: Selenium can clear session_id on shutdown.
+                record = {
+                    "session_id": driver.session_id,
+                    "video_name": video_name,
+                    "stage": "created",
+                    "quit_completed": False,
+                    "video_status": "pending",
+                }
+                diagnostic(
+                    "Selenoid initial metadata", lambda: attach_session_record(record, artifacts)
+                )
             driver.set_page_load_timeout(45)
             logger.info("Chrome version: %s", driver.capabilities["browserVersion"])
             yield driver
         finally:
             try:
-                attach_driver_state(driver, artifacts)
-                observations = driver.execute_script("""
-                    return {
-                        url: location.origin + location.pathname,
-                        ready_state: document.readyState,
-                        iframe_count: document.querySelectorAll('iframe').length,
-                        advertising_frame_count: document.querySelectorAll(
-                            'iframe[id*="google_ads"], iframe[id*="aswift"], iframe[src*="doubleclick"]'
-                        ).length
-                    };
-                """)
-                # Remote lacks ChromiumDriver.get_log(); both support this command.
-                console = driver.execute(Command.GET_LOG, {"type": "browser"})["value"]
-                observations["console_levels"] = dict(Counter(
-                    entry["level"] for entry in console
-                ))
-                # Keep only hosts/error codes, never URL queries or credentials.
-                observations["network_errors"] = [
-                    {
-                        "hosts": sorted({urlsplit(url).hostname for url in
-                            re.findall(r"https?://[^\s]+", entry["message"])}),
-                        "codes": re.findall(r"net::ERR_[A-Z_]+", entry["message"]),
-                        "http_statuses": re.findall(r"status of (\d{3})", entry["message"]),
-                        "source": entry["source"],
-                    }
-                    for entry in console if entry["level"] == "SEVERE"
-                ]
-                (artifacts / "browser_observation.json").write_text(
-                    json.dumps(observations, indent=2), encoding="utf-8"
-                )
-                diagnostic("browser logs", lambda: attach_json("Browser logs (hosts/codes only)", observations))
-                logger.info("Browser observation: %s", observations)
-            except Exception as error:
-                logger.warning("Could not save browser diagnostics: %s", type(error).__name__)
+                diagnostic("browser state", lambda: attach_driver_state(driver, artifacts))
+                diagnostic("browser logs", lambda: attach_browser_logs(driver, artifacts))
             finally:
                 try:
                     driver.quit()
                     if record is not None:
                         record["quit_completed"] = True
                 finally:
-                    if record is not None:
+                    if record is not None and remote is not None:
                         record["stage"] = "finished"
                         # Reporting cannot hide a quit exception already propagating.
                         finish_remote_reporting(remote, record, artifacts)
+
+
+@pytest.fixture
+def catalog_page(browser: WebDriver) -> CatalogPage:
+    return CatalogPage(browser)
+
+
+@pytest.fixture
+def product_page(browser: WebDriver) -> ProductPage:
+    return ProductPage(browser)
+
+
+@pytest.fixture
+def cart_page(browser: WebDriver) -> CartPage:
+    return CartPage(browser)
+
+
+@pytest.fixture
+def login_page(browser: WebDriver) -> LoginPage:
+    return LoginPage(browser)

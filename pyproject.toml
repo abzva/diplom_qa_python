@@ -1,0 +1,26 @@
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+cache-dir = ".cache/ruff"
+extend-exclude = [".artifacts", ".cache", ".tmp", "reports", "research_notes"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "B", "UP", "PT"]
+
+[tool.mypy]
+python_version = "3.13"
+files = [
+    "browser.py", "config.py", "conftest.py", "reporting.py", "selenoid.py",
+    "models", "pages", "diplom_qa_python", "mobile", "tests",
+]
+explicit_package_bases = true
+cache_dir = ".cache/mypy"
+check_untyped_defs = true
+disallow_untyped_defs = true
+warn_unused_ignores = true
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+# These installed libraries do not ship typing information.
+module = ["allure", "allure.*", "allure_commons", "allure_commons.*"]
+ignore_missing_imports = true

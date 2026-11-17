@@ -4,12 +4,12 @@ import logging
 from urllib.parse import urlsplit
 
 from selenium.webdriver.common.by import By
+from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions as conditions
 from selenium.webdriver.support.ui import WebDriverWait
 
 from config import settings
 from models.product import ProductSnapshot, parse_price
-
 
 logger = logging.getLogger(__name__)
 
@@ -19,19 +19,21 @@ class ProductPage:
     QUANTITY = (By.CSS_SELECTOR, "input#quantity")
     ADD_TO_CART = (By.CSS_SELECTOR, "button.cart")
 
-    def __init__(self, browser):
+    def __init__(self, browser: WebDriver) -> None:
         self.browser = browser
         self.wait = WebDriverWait(browser, settings.ui_timeout)
 
-    def should_match(self, expected: ProductSnapshot):
+    def should_match(self, expected: ProductSnapshot) -> None:
         self.wait.until(
-            lambda driver: urlsplit(driver.current_url).path
-            == f"/product_details/{expected.product_id}"
+            lambda driver: (
+                urlsplit(driver.current_url).path == f"/product_details/{expected.product_id}"
+            )
         )
         info = self.wait.until(conditions.visibility_of_element_located(self.INFORMATION))
         name = info.find_element(By.CSS_SELECTOR, ":scope > h2")
         price = info.find_element(By.CSS_SELECTOR, ":scope > span > span")
-        assert name.is_displayed() and price.is_displayed(), "Product name/price must be visible"
+        assert name.is_displayed(), "Product name must be visible"
+        assert price.is_displayed(), "Product price must be visible"
         assert name.text.strip() == expected.name, (
             f"Product name differs: catalog={expected.name!r}, details={name.text!r}"
         )
@@ -51,23 +53,28 @@ class ProductPage:
 
         quantity = info.find_element(*self.QUANTITY)
         add_button = info.find_element(*self.ADD_TO_CART)
-        assert quantity.is_displayed() and quantity.is_enabled(), "Quantity must be editable"
-        assert add_button.is_displayed() and add_button.is_enabled(), "Add to cart must be available"
-        logger.info("UI: product id=%s matches the saved catalog data; attributes are visible", expected.product_id)
+        assert quantity.is_displayed(), "Quantity must be visible"
+        assert quantity.is_enabled(), "Quantity must be editable"
+        assert add_button.is_displayed(), "Add to cart must be visible"
+        assert add_button.is_enabled(), "Add to cart must be available"
+        logger.info(
+            "UI: product id=%s matches the saved catalog data; attributes are visible",
+            expected.product_id,
+        )
 
-    def set_quantity(self, quantity: int):
+    def set_quantity(self, quantity: int) -> None:
         info = self.wait.until(conditions.visibility_of_element_located(self.INFORMATION))
-        field = self.wait.until(conditions.element_to_be_clickable(
-            info.find_element(*self.QUANTITY)
-        ))
+        field = self.wait.until(
+            conditions.element_to_be_clickable(info.find_element(*self.QUANTITY))
+        )
         field.clear()
         field.send_keys(str(quantity))
         self.wait.until(lambda _: field.get_attribute("value") == str(quantity))
         logger.info("UI: set product quantity to %s before adding", quantity)
 
-    def add_to_cart(self):
+    def add_to_cart(self) -> None:
         info = self.wait.until(conditions.visibility_of_element_located(self.INFORMATION))
-        self.wait.until(conditions.element_to_be_clickable(
-            info.find_element(*self.ADD_TO_CART)
-        )).click()
+        self.wait.until(
+            conditions.element_to_be_clickable(info.find_element(*self.ADD_TO_CART))
+        ).click()
         logger.info("UI: clicked Add to cart in the selected product's information")

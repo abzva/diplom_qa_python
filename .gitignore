@@ -23,3 +23,13 @@ allure-report/
 /reports/
 /docs/final_review.md
 /docs/github_profile_draft.md
+/docs/validation.md
+SKILL.md
+AGENTS.md
+/references/
+.agents/
+.codex/
+venv/
+.mypy_cache/
+.ruff_cache/
+*.log

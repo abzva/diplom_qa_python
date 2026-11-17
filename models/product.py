@@ -1,8 +1,11 @@
 """Values copied from the catalog before navigating to a product page."""
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from decimal import Decimal
+
+from models.catalog import Product
 
 
 @dataclass(frozen=True)
@@ -12,7 +15,7 @@ class ProductSnapshot:
     price: Decimal
 
 
-def select_search_products(products):
+def select_search_products[T: ProductSnapshot | Product](products: Sequence[T]) -> tuple[T, T]:
     """Select a name query and an unrelated control from the current catalog.
 
     Automation Exercise test case 9 searches by product name. Disjoint words
