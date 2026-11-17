@@ -30,9 +30,18 @@ class CatalogPage:
 
     def open(self) -> None:
         logger.info("UI: opening the catalog through the Products navigation link")
-        self.browser.get(f"{settings.base_url}/")
+
+        current_url = urlsplit(self.browser.current_url)
+        base_url = urlsplit(settings.base_url)
+
+        # Open home only when browser is not already on the site.
+        if current_url.netloc != base_url.netloc:
+            self.browser.get(f"{settings.base_url}/")
+
         self.wait.until(conditions.element_to_be_clickable(self.PRODUCTS_LINK)).click()
+
         self.wait.until(lambda driver: urlsplit(driver.current_url).path == "/products")
+
         title = self.wait.until(conditions.visibility_of_element_located(self.TITLE))
         assert title.text == "ALL PRODUCTS", title.text
 
