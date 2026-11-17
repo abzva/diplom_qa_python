@@ -19,6 +19,7 @@ from urllib3.exceptions import HTTPError
 from browser import chrome_options
 from config import SelenoidSettings
 from reporting import attach_json, diagnostic, register_cloud_credentials
+from ui_diagnostics import collect_driver_log
 
 logger = logging.getLogger(__name__)
 VIDEO_WAIT_SECONDS = 30
@@ -38,6 +39,7 @@ class SelenoidRecord(TypedDict):
     video_http_status: NotRequired[int | None]
     video_bytes: NotRequired[int]
     video_error: NotRequired[str]
+    driver_log_name: NotRequired[str]
 
 
 def auth_pair(username: SecretStr | None, password: SecretStr | None) -> tuple[str, str] | None:
@@ -49,18 +51,20 @@ def auth_pair(username: SecretStr | None, password: SecretStr | None) -> tuple[s
     return pair
 
 
-def start_remote_browser(settings: SelenoidSettings) -> tuple[WebDriver, str]:
+def start_remote_browser(
+    settings: SelenoidSettings, *, diagnostics: bool = False
+) -> tuple[WebDriver, str]:
     video_name = f"{uuid4().hex}.mp4"
-    options = chrome_options()
+    options = chrome_options(diagnostics=diagnostics)
     options.browser_version = settings.browser_version
-    options.set_capability(
-        "selenoid:options",
-        {
-            "enableVideo": True,
-            "videoName": video_name,
-            "screenResolution": "1440x1000x24",
-        },
-    )
+    selenoid_options: dict[str, object] = {
+        "enableVideo": True,
+        "videoName": video_name,
+        "screenResolution": "1440x1000x24",
+    }
+    if diagnostics:
+        selenoid_options.update(enableLog=True, logName=video_name.removesuffix(".mp4") + ".log")
+    options.set_capability("selenoid:options", selenoid_options)
     credentials = auth_pair(settings.username, settings.password)
     connection = ClientConfig(
         remote_server_addr=settings.webdriver_url,
@@ -174,3 +178,8 @@ def finish_remote_reporting(
     if not diagnostic("Selenoid video", lambda: collect_video(settings, record, artifacts)):
         record.update({"video_status": "unavailable", "video_error": "collection_failed"})
     diagnostic("Selenoid session metadata", lambda: attach_session_record(record, artifacts))
+    if "driver_log_name" in record:
+        diagnostic(
+            "Selenoid driver log",
+            lambda: collect_driver_log(settings, record["driver_log_name"], artifacts),
+        )

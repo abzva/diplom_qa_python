@@ -10,7 +10,7 @@ select = ["E4", "E7", "E9", "F", "I", "B", "UP", "PT"]
 [tool.mypy]
 python_version = "3.13"
 files = [
-    "browser.py", "config.py", "conftest.py", "reporting.py", "selenoid.py",
+    "browser.py", "config.py", "conftest.py", "reporting.py", "selenoid.py", "ui_diagnostics.py",
     "models", "pages", "diplom_qa_python", "mobile", "tests",
 ]
 explicit_package_bases = true

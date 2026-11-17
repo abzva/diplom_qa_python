@@ -16,15 +16,15 @@ pytestmark = [
 
 @allure.title("UI-01: Вход пользователя, подготовленного через API")
 def test_login_with_api_created_user(
-    login_page: LoginPage,
+    user_login_page: LoginPage,
     test_user: CreateAccountRequest,
 ) -> None:
     with allure.step("Открыть форму входа"):
-        login_page.open()
+        user_login_page.open()
     with allure.step("Войти с реквизитами созданного пользователя"):
-        login_page.login(test_user)
+        user_login_page.login(test_user)
     with allure.step("Проверить точное имя пользователя и Logout"):
-        login_page.should_be_logged_in_as(test_user.name)
+        user_login_page.should_be_logged_in_as(test_user.name)
 
 
 @allure.title("UI-02: Несуществующий пользователь не может войти")

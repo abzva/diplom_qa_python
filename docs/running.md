@@ -193,7 +193,60 @@ mkdir -p "$RUN_DIR"
   --junitxml="$RUN_DIR/junit.xml" --log-file="$RUN_DIR/run.log"
 ```
 
-Для пробного запуска одного UI-теста замените `tests` на `tests/test_catalog.py::test_catalog_has_products_with_names_prices_and_detail_links`. Фикстура создаёт новую сессию на тест, сохраняет диагностику, вызывает `quit()` и запрашивает видео завершённой сессии.
+Для адресной проверки замените команду pytest в **Execute shell** одним из вариантов
+ниже. Выполняйте их в отдельных сборках; установка зависимостей, предоставление
+`.env` и `RUN_DIR=".artifacts/jenkins/$BUILD_NUMBER"` остаются как в примере выше.
+
+**UI-01 — порядок завершения входа:**
+
+```bash
+.venv/bin/python -m pytest \
+  tests/test_login.py::test_login_with_api_created_user --ui-mode=selenoid -v \
+  --basetemp="$RUN_DIR/pytest-tmp" --alluredir="$RUN_DIR/allure-results" \
+  --junitxml="$RUN_DIR/junit.xml" --log-file="$RUN_DIR/run.log"
+```
+
+Зависимости подготовки: `api_session → account_data → test_user → user_browser →
+user_login_page`. В завершении браузер сохраняет диагностику, вызывает `quit()`
+и обрабатывает видео до API-очистки аккаунта. При ошибке `quit()` видео помечается
+как недоступное, ошибка закрытия остаётся ошибкой teardown, а pytest продолжает
+очистку аккаунта. Финализатор аккаунта зарегистрирован до POST создания; он
+выполняется и при сбое подготовки. API-тесты не зависят от браузера.
+
+**UI-05 — один диагностический запуск Products:**
+
+```bash
+.venv/bin/python -m pytest \
+  tests/test_product.py::test_product_details_match_selected_catalog_product \
+  --ui-mode=selenoid --ui-diagnostics -v \
+  --basetemp="$RUN_DIR/pytest-tmp" --alluredir="$RUN_DIR/allure-results" \
+  --junitxml="$RUN_DIR/junit.xml" --log-file="$RUN_DIR/run.log"
+```
+
+Обычные Selenoid-настройки в `.env` сохраняются; дополнительных секретов не нужно.
+Флаг работает только с `--ui-mode=selenoid` и не меняет навигацию, локаторы,
+`pageLoadStrategy=eager` или таймауты. Он запрашивает:
+
+- Chrome performance log: события Network/Page с временем, связями запросов,
+  HTTP-кодами и сетевыми кодами ошибок. Сохраняются хосты и только известные
+  публичные маршруты магазина; query, fragments, заголовки, cookies, тела запросов
+  и ответов исключены. Идентификаторы запросов хешируются. Вложение —
+  `Chrome loading trace (filtered)`, локальный файл — `loading_trace.json`.
+- Selenoid `enableLog=true` и уникальный `logName`. После закрытия и обработки
+  видео выполняется один GET `/logs/<logName>` на том же сервере с имеющейся
+  WebDriver-авторизацией. В `driver_log.json` и вложение попадают только времена,
+  имена команд/ответов и признак renderer timeout, без исходных payload.
+
+Доступ к логам учебного сервера **не подтверждён**. `enableLog` запрашивает их
+сохранение, но не включает verbose-режим ChromeDriver: для него нужна настройка
+образа на сервере. HTTP 401/403/404, ошибка транспорта, отсутствие команд в логе
+или неподдерживаемый performance log явно отражаются в диагностике. Логи не
+перезапрашиваются; сбои диагностических вложений не заменяют результат теста.
+Сырые логи не записываются в файлы и не прикрепляются к Allure.
+
+Форматы описаны в документации
+[Selenoid](https://aerokube.com/selenoid/latest/#_saving_session_logs) и
+[ChromeDriver performance log](https://developer.chrome.com/docs/chromedriver/logging/performance-log).
 
 Передавайте в публикацию результаты только текущего `$RUN_DIR`, включая упавшие запуски. Сохраняйте ненулевой код выхода pytest; не заменяйте его успешным кодом загрузчика отчёта. Сохраняйте каталог результатов текущей сборки как артефакт до очистки workspace.
 

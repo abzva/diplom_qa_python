@@ -9,12 +9,18 @@ from selenium.webdriver.chrome.service import Service
 from config import ROOT
 
 
-def chrome_options() -> webdriver.ChromeOptions:
+def chrome_options(*, diagnostics: bool = False) -> webdriver.ChromeOptions:
     options = webdriver.ChromeOptions()
     # Page Objects wait for the actual UI state after DOM readiness.
     options.page_load_strategy = "eager"
     options.add_argument("--window-size=1440,1000")
-    options.set_capability("goog:loggingPrefs", {"browser": "ALL"})
+    log_preferences = {"browser": "ALL"}
+    if diagnostics:
+        log_preferences["performance"] = "ALL"
+        options.add_experimental_option(
+            "perfLoggingPrefs", {"enableNetwork": True, "enablePage": True}
+        )
+    options.set_capability("goog:loggingPrefs", log_preferences)
     options.add_experimental_option(
         "prefs",
         {

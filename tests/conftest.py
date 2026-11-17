@@ -28,6 +28,7 @@ from selenoid import (
     finish_remote_reporting,
     start_remote_browser,
 )
+from ui_diagnostics import attach_loading_trace
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,11 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         choices=("local", "selenoid"),
         default="local",
         help="UI driver mode; remote mode must be selected explicitly",
+    )
+    parser.addoption(
+        "--ui-diagnostics",
+        action="store_true",
+        help="Request Selenoid driver logs and attach a filtered Chrome loading trace",
     )
 
 
@@ -91,6 +97,22 @@ def test_user(account_data: CreateAccountRequest, api_session: ApiSession) -> Cr
 @pytest.fixture
 @allure.title("Новая сессия Chrome; диагностика и закрытие в teardown")
 def browser(request: pytest.FixtureRequest) -> Iterator[WebDriver]:
+    yield from _browser_session(request)
+
+
+@pytest.fixture
+@allure.title("Браузер после создания аккаунта; закрытие до API-очистки")
+def user_browser(
+    test_user: CreateAccountRequest, request: pytest.FixtureRequest
+) -> Iterator[WebDriver]:
+    # Explicit dependency: pytest finalizes this browser before test_user/account_data.
+    yield from _browser_session(request)
+
+
+def _browser_session(request: pytest.FixtureRequest) -> Iterator[WebDriver]:
+    diagnostics = request.config.getoption("--ui-diagnostics")
+    if diagnostics and request.config.getoption("--ui-mode") != "selenoid":
+        raise pytest.UsageError("--ui-diagnostics requires --ui-mode=selenoid")
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
     artifacts = ROOT / ".artifacts" / "ui" / f"{stamp}_{request.node.name}"
     artifacts.mkdir(parents=True, exist_ok=True)
@@ -100,7 +122,7 @@ def browser(request: pytest.FixtureRequest) -> Iterator[WebDriver]:
     with ExitStack() as stack:
         if request.config.getoption("--ui-mode") == "selenoid":
             remote = SelenoidSettings.from_env_file()
-            driver, video_name = start_remote_browser(remote)
+            driver, video_name = start_remote_browser(remote, diagnostics=diagnostics)
         else:
             temporary = ROOT / ".tmp" / "chrome"
             temporary.mkdir(parents=True, exist_ok=True)
@@ -118,6 +140,8 @@ def browser(request: pytest.FixtureRequest) -> Iterator[WebDriver]:
                     "quit_completed": False,
                     "video_status": "pending",
                 }
+                if diagnostics:
+                    record["driver_log_name"] = video_name.removesuffix(".mp4") + ".log"
                 diagnostic(
                     "Selenoid initial metadata", lambda: attach_session_record(record, artifacts)
                 )
@@ -126,6 +150,10 @@ def browser(request: pytest.FixtureRequest) -> Iterator[WebDriver]:
             yield driver
         finally:
             try:
+                if diagnostics:
+                    diagnostic(
+                        "Chrome loading trace", lambda: attach_loading_trace(driver, artifacts)
+                    )
                 diagnostic("browser state", lambda: attach_driver_state(driver, artifacts))
                 diagnostic("browser logs", lambda: attach_browser_logs(driver, artifacts))
             finally:
@@ -158,3 +186,8 @@ def cart_page(browser: WebDriver) -> CartPage:
 @pytest.fixture
 def login_page(browser: WebDriver) -> LoginPage:
     return LoginPage(browser)
+
+
+@pytest.fixture
+def user_login_page(user_browser: WebDriver) -> LoginPage:
+    return LoginPage(user_browser)
