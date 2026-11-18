@@ -61,7 +61,7 @@ PRE_COMMIT_HOME="$PWD/.cache/pre-commit" .venv/bin/python -m pre_commit install
 ## Настройки
 
 - **API и локальный UI:** работают без `.env`. Адрес `https://automationexercise.com` задан в `config.py`; для другого стенда используется переменная процесса `BASE_URL`.
-- **Selenoid:** в корневом `.env` нужны `SELENOID_URL`, `SELENOID_BROWSER_VERSION`, `SELENOID_VIDEO_BASE_URL`. Учебные адреса: `https://selenoid.qa.guru/wd/hub` и `https://selenoid.qa.guru/video/`. В подтверждённом прогоне Chrome — **156.0.8078.47**. Версию для нового запуска выбирайте из доступных на сервере. Если требуется HTTP Basic Auth, заполните `SELENOID_LOGIN`/`SELENOID_PASS`; доступ к видео настраивается отдельно через `SELENOID_VIDEO_USERNAME`/`SELENOID_VIDEO_PASSWORD`.
+- **Selenoid:** в корневом `.env` нужны `SELENOID_URL`, `SELENOID_BROWSER_VERSION`, `SELENOID_VIDEO_BASE_URL`. Учебные адреса: `https://selenoid.qa.guru/wd/hub` и `https://selenoid.qa.guru/video/`. В Jenkins №34 от 18.11.2026 использованы `SELENOID_BROWSER_VERSION=158.0` и Chrome **158.0.8127.36**. Версию для нового запуска выбирайте из доступных на сервере: на эту дату `/status` показывал `148.0`, `157.0`, `158.0`; `156.0` отсутствовала. Если требуется HTTP Basic Auth, заполните `SELENOID_LOGIN`/`SELENOID_PASS`; доступ к видео настраивается отдельно через `SELENOID_VIDEO_USERNAME`/`SELENOID_VIDEO_PASSWORD`.
 - **Mobile:** нужны пять `BROWSERSTACK_*` полей из [.env.example](../.env.example), доступ App Automate, доступные минуты и заранее загруженный APK. Приложение должно быть доступно используемому аккаунту; тесты его не загружают.
 
 Selenoid и Mobile читают только корневой `.env` через `python-dotenv`: переменные процесса не заменяют значения этого файла. Для нового клона создайте `.env` по образцу `.env.example`; существующий файл сохраняйте. В Jenkins предоставляйте его через механизм секретов, вне Git и консольного вывода.
@@ -176,12 +176,24 @@ Allure при создании и завершении сессии. Ошибк�
 Задача [anastasia-diplom-python-ci](https://jenkins.qa.guru/job/anastasia-diplom-python-ci/) — **Freestyle**, 8 UI-тестов через Selenoid и 6 API-тестов. Mobile запускается отдельно.
 
 Установите зависимости из `requirements-dev.txt` в `.venv` и предоставьте корневой
-`.env` с Selenoid-настройками через механизм секретов Jenkins. Пример для шага
-**Execute shell** (настройка внешней задачи выполняется отдельно):
+`.env` с Selenoid-настройками через **Bindings → Secret file**:
+Variable — `DIPLOMA_ENV_FILE`, Credentials → Parameter expression —
+`${DIPLOMA_ENV_CREDENTIAL}`. Параметр выбирает credential; `DIPLOMA_ENV_FILE`
+содержит путь к предоставленному файлу. Перед pytest файл копируется в `.env`;
+его содержимое не выводится в консоль.
+
+Пример **Execute shell** для всех 14 UI/API-тестов. Для одного сценария замените
+команду pytest адресной командой ниже. В сборке №34 выполнен только UI-07.
 
 ```bash
 #!/bin/bash
+set +x
 set -eu
+: "${DIPLOMA_ENV_FILE:?Не привязан файл Credentials}"
+test -f "$DIPLOMA_ENV_FILE"
+umask 077
+cp "$DIPLOMA_ENV_FILE" .env
+chmod 600 .env
 .venv/bin/python -m pip check
 .venv/bin/python -m ruff check .
 .venv/bin/python -m ruff format --check .
@@ -189,7 +201,7 @@ set -eu
 RUN_DIR=".artifacts/jenkins/$BUILD_NUMBER"
 mkdir -p "$RUN_DIR"
 .venv/bin/python -m pytest tests --ui-mode=selenoid -v \
-  --basetemp="$RUN_DIR/pytest-tmp" --alluredir="$RUN_DIR/allure-results" \
+  --basetemp="$RUN_DIR/pytest-tmp" --alluredir=allure-results \
   --junitxml="$RUN_DIR/junit.xml" --log-file="$RUN_DIR/run.log"
 ```
 
@@ -202,7 +214,7 @@ mkdir -p "$RUN_DIR"
 ```bash
 .venv/bin/python -m pytest \
   tests/test_login.py::test_login_with_api_created_user --ui-mode=selenoid -v \
-  --basetemp="$RUN_DIR/pytest-tmp" --alluredir="$RUN_DIR/allure-results" \
+  --basetemp="$RUN_DIR/pytest-tmp" --alluredir=allure-results \
   --junitxml="$RUN_DIR/junit.xml" --log-file="$RUN_DIR/run.log"
 ```
 
@@ -219,9 +231,12 @@ user_login_page`. В завершении браузер сохраняет ди
 .venv/bin/python -m pytest \
   tests/test_product.py::test_product_details_match_selected_catalog_product \
   --ui-mode=selenoid --ui-diagnostics -v \
-  --basetemp="$RUN_DIR/pytest-tmp" --alluredir="$RUN_DIR/allure-results" \
+  --basetemp="$RUN_DIR/pytest-tmp" --alluredir=allure-results \
   --junitxml="$RUN_DIR/junit.xml" --log-file="$RUN_DIR/run.log"
 ```
+
+Для UI-07, проверенного в сборке №34, используйте ту же команду с узлом
+`tests/test_cart.py::test_cart_uses_quantity_selected_before_adding`.
 
 Обычные Selenoid-настройки в `.env` сохраняются; дополнительных секретов не нужно.
 Флаг работает только с `--ui-mode=selenoid` и не меняет навигацию, локаторы,
@@ -237,9 +252,11 @@ user_login_page`. В завершении браузер сохраняет ди
   WebDriver-авторизацией. В `driver_log.json` и вложение попадают только времена,
   имена команд/ответов и признак renderer timeout, без исходных payload.
 
-Доступ к логам учебного сервера **не подтверждён**. `enableLog` запрашивает их
-сохранение, но не включает verbose-режим ChromeDriver: для него нужна настройка
-образа на сервере. HTTP 401/403/404, ошибка транспорта, отсутствие команд в логе
+В сборке №34 трасса Chrome собрана (398 событий), запрос серверного журнала
+вернул HTTP 200, но фильтр не нашёл команд (`no_command_events`). Наличие
+полного журнала команд ChromeDriver не подтверждено. `enableLog` запрашивает
+сохранение журнала, но не включает verbose-режим ChromeDriver: для него нужна
+настройка образа на сервере. HTTP 401/403/404, ошибка транспорта, отсутствие команд в логе
 или неподдерживаемый performance log явно отражаются в диагностике. Логи не
 перезапрашиваются; сбои диагностических вложений не заменяют результат теста.
 Сырые логи не записываются в файлы и не прикрепляются к Allure.
@@ -248,7 +265,15 @@ user_login_page`. В завершении браузер сохраняет ди
 [Selenoid](https://aerokube.com/selenoid/latest/#_saving_session_logs) и
 [ChromeDriver performance log](https://developer.chrome.com/docs/chromedriver/logging/performance-log).
 
-Передавайте в публикацию результаты только текущего `$RUN_DIR`, включая упавшие запуски. Сохраняйте ненулевой код выхода pytest; не заменяйте его успешным кодом загрузчика отчёта. Сохраняйте каталог результатов текущей сборки как артефакт до очистки workspace.
+В текущей задаче загрузчик TestOps и Allure Report используют корневой
+`allure-results`, поэтому Jenkins-команды выше пишут туда же. `$RUN_DIR` хранит
+JUnit и лог pytest. Перед новой сборкой архивируйте предыдущие результаты и
+обеспечьте пустой каталог для нового запуска; старые JSON не должны смешиваться
+с новыми. При переходе на `$RUN_DIR/allure-results` одновременно измените путь
+в обоих издателях Jenkins.
+
+Сохраняйте ненулевой код выхода pytest; не заменяйте его успешным кодом загрузчика
+отчёта. Архивируйте исходные результаты с вложениями до очистки workspace.
 
 ## Allure Report и TestOps
 
