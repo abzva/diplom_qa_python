@@ -133,20 +133,20 @@ Allure содержит группы UI/API/Mobile, шаги, скриншоты
 
 ### Jenkins, Allure Report и TestOps
 
-[Задача Jenkins](https://jenkins.qa.guru/job/anastasia-diplom-python-ci/) поддерживает запуск 8 UI-тестов через Selenoid и 6 API-тестов; Mobile запускается отдельно. В [сборке №34](https://jenkins.qa.guru/job/anastasia-diplom-python-ci/34/) от **18.11.2026** выполнен только **UI-07: 1 passed, 15,06 с** на коммите [`c60a60d`](https://github.com/abzva/diplom_qa_python/commit/c60a60d568fc45e640c8103499b9d0ae3bc08368), Python **3.14.4**, Chrome **158.0.8127.36**.
+[Сборка Jenkins №35](https://jenkins.qa.guru/job/anastasia-diplom-python-ci/35/) от **18.11.2026** завершилась успешно: **14 passed — 8 UI и 6 API** на коммите [`80d2f86`](https://github.com/abzva/diplom_qa_python/commit/80d2f866bad5a10f4c3f6ffcc33f5640ced8fa51). UI выполнялись через Selenoid; Mobile в этот запуск не входил.
 
-[Allure Report №34](https://jenkins.qa.guru/job/anastasia-diplom-python-ci/34/allure/) · [TestOps #57387](https://allure.qa.guru/launch/57387): три основных шага UI-07 и девять вложений, включая скриншот и видео.
+[Allure Report №35](https://jenkins.qa.guru/job/anastasia-diplom-python-ci/35/allure/) · [TestOps #57388](https://allure.qa.guru/launch/57388)
 
 Срок хранения подробностей успешных тестов в учебном TestOps — 24 часа; очистка применяется к закрытым запускам. [Хранение отчётов →](docs/running.md#allure-report-и-testops)
 
-Ниже — скриншоты [запуска #57387](https://allure.qa.guru/launch/57387), сборка №34, от **18.11.2026**.
+Обзор [запуска #57388](https://allure.qa.guru/launch/57388), сборка №35, от **18.11.2026**:
 
-[![Allure TestOps: сборка №34, один успешный тест UI-07](docs/images/testops_launch_overview.png)](https://allure.qa.guru/launch/57387)
+[![Allure TestOps: сборка №35, все 14 UI/API-тестов успешны](docs/images/testops_launch_overview.png)](https://allure.qa.guru/launch/57388)
 
 <details>
 <summary><b>Шаги UI-теста, вложения и ручные кейсы</b></summary>
 
-**UI-07 — количество 4 и сумма строки корзины:**
+**Пример из сборки №34 от 18.11.2026: UI-07 — количество 4 и сумма строки корзины.**
 
 [![UI-07: три успешных основных шага](docs/images/testops_ui_steps.png)](https://allure.qa.guru/launch/57387/tree/1199086)
 
@@ -166,7 +166,7 @@ Allure содержит группы UI/API/Mobile, шаги, скриншоты
 
 ## Результаты и ограничения
 
-Сборка №34 подтверждает только UI-07. Полный набор на `c60a60d` ещё не подтверждён успешным прогоном.
+Все 14 UI/API-сценариев подтверждены сборкой №35 на `80d2f86`. Три Mobile-сценария запускаются отдельно; результат №35 на них не распространяется.
 
 - Mobile поддерживает только BrowserStack App Automate; нужны доступ к сервису и загруженный APK.
 - В Mobile-прогоне от 13.11.2026 видео не удалось прикрепить; скриншоты и исходный код страниц сохранены. Доступна [загрузка позднего видео](docs/running.md#позднее-видео-browserstack).

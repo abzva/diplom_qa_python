@@ -11,9 +11,9 @@
 
 Проект `baz-allure-diplom` (#5398).
 
-- `testops_launch_overview.png` — [обзор запуска #57387](https://allure.qa.guru/launch/57387), `anastasia-diplom-python-ci - #34`: один успешный UI-07, 100% от одного теста. [Jobrun #57036](https://allure.qa.guru/jobrun/57036), коммит `c60a60d568fc45e640c8103499b9d0ae3bc08368`.
-- `testops_ui_steps.png` — [результат UI-07 #1199086](https://allure.qa.guru/launch/57387/tree/1199086), три успешных основных шага проверки количества и суммы строки корзины.
-- `testops_ui_attachments.png` — [вложения UI-07](https://allure.qa.guru/launch/57387/tree/1199086/attachments): восемь вложений фикстур, включая HTML, PNG, MP4, сведения Selenoid и фильтрованную диагностику. Отдельно у теста есть вложение `log`, всего девять. Chrome loading trace содержит 398 событий; Selenoid driver log содержит статус `no_command_events`, а не журнал команд.
+- `testops_launch_overview.png` — [обзор запуска #57388](https://allure.qa.guru/launch/57388), `anastasia-diplom-python-ci - #35`: 14 успешных результатов (8 UI и 6 API), 100%. [Jobrun #57037](https://allure.qa.guru/jobrun/57037), коммит `80d2f866bad5a10f4c3f6ffcc33f5640ced8fa51`. Mobile не запускался.
+- `testops_ui_steps.png` — сборка №34, [результат UI-07 #1199086](https://allure.qa.guru/launch/57387/tree/1199086), три успешных основных шага проверки количества и суммы строки корзины.
+- `testops_ui_attachments.png` — сборка №34, [вложения UI-07](https://allure.qa.guru/launch/57387/tree/1199086/attachments): восемь вложений фикстур, включая HTML, PNG, MP4, сведения Selenoid и фильтрованную диагностику. Отдельно у теста есть вложение `log`, всего девять. Chrome loading trace содержит 398 событий; Selenoid driver log содержит статус `no_command_events`, а не журнал команд.
 
 ## Ручные кейсы · 25.10.2026
 
